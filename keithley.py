@@ -42,7 +42,7 @@ time_flow_rate = []  # Create an empty list to store time values in.
 time_volt_drop_block = []
 time_current_shunt = []
 time_diff_pressure = []
-flow_rate = []  # Create an empty list to store temperature values in.
+flow_rate = []  # Create an empty list to store flow rate values in.
 voltage_drop_block = []
 current_shunt = []
 diff_pressure = []
@@ -58,36 +58,17 @@ time_block_2 = []
 T_amb = []
 time_amb = []
 
-# multimeter2.write(":ROUTe:CLOSe (@401)") # Set the keithley to measure channel 1 of card 1
-# multimeter2.write(":SENSe:FUNCtion 'TEMPerature'") # Set the keithley to measure temperature.
-# temperatureList2 = [] # Create an empty list to store temperature values in.
-
 startTime = time.time()  # Create a variable that holds the starting timestamp.
 
-# Setup the plot
-
-# plt.figure(1, figsize=(5, 5)) # Initialize a matplotlib figure
-# plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-# # plt.xticks(fontsize=18) # Set the font size of the x tick numbers to 18pt
-# plt.ylabel('Temperature (C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
-# plt.yticks(fontsize=18) # Set the font size of the y tick numbers to 18pt
-
-
-# plt.figure(2, figsize=(5, 5)) # Initialize a matplotlib figure
-# plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-# # plt.xticks(fontsize=18) # Set the font size of the x tick numbers to 18pt
-# plt.ylabel('Voltage2 (V)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
-# # plt.yticks(fontsize=18) # Set the font size of the y tick numbers to 18pt
-
-
 flag = 1
-
 
 def normal():
     global flag
 
 # Create a while loop that continuously measures and plots data from the keithley forever.
     while flag == 1:
+
+        # -------------------- Multimeter 1 --------------------
 
         multimeter1.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
         time.sleep(1)
@@ -117,18 +98,11 @@ def normal():
         time_diff_pressure.append(float(time.time() - startTime))
         time.sleep(0.5)
 
-        # # temperatureReading2 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0][:-2])  # Read and process data from the keithley.
-        # # temperatureList2.append(temperatureReading2 * 10)  # Append processed data to the temperature list
-        #
-        # time.sleep(0.25)
-
-        # Multimeter 2
+        # -------------------- Multimeter 2 ------------------------
 
         multimeter2.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
         time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        test_data_string = multimeter2.query(':SENSe:DATA:FRESh?')
-        RTD_1 = float(test_data_string.split(',')[0])
-        print(float(test_data_string.split(',')[0]))
+        RTD_1 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
         T_block_1.append(float(PT100(RTD_1)))
         time_block_1.append(float(time.time() - startTime))
         time.sleep(0.5)
@@ -161,23 +135,9 @@ def normal():
         time_amb.append(float(time.time() - startTime))
         time.sleep(0.5)
 
-        # voltageReading3 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # current_shunt.append(voltageReading3) # Append processed data to the temperature list
-        # time_current_shunt.append(float(time.time() - startTime)) # Append time values to the time list
-
-
-
-        # plt.plot(timeList, temperatureList2, color='blue', linewidth=2) # Plot the collected data with time on the x axis and temperature on the y axis.
-
-        # plt.show()
-        # plt.figure(2)
-        # plt.plot(time_volt_drop_block, voltage_drop_block, color='red',linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
-        # #
-
-        if flag==False:
+        if flag == False:
             print('Data will be saved in the file: {}'.format(output_file_name))
 
-    # print(T_water_in)
 
     output_dataframe = pd.DataFrame({'t_block_1': time_block_1,
                                      'T_block_1': T_block_1,
@@ -192,10 +152,12 @@ def normal():
                                      't_flow': time_flow_rate,
                                      'V_flow': flow_rate,
                                      't_block_prob': time_volt_drop_block,
-                                     'V_block_prob': voltage_drop_block
+                                     'V_block_prob': voltage_drop_block,
+                                     't_current_shunt': time_current_shunt,
+                                     'Current_shunt': current_shunt,
+                                     't_diff_press': time_diff_pressure,
+                                     'Diff_press': diff_pressure
                                      })
-
-
 
     output_dataframe.to_csv(output_file_name, sep="\t", index=False)
 
@@ -209,8 +171,8 @@ def get_input():
     # print('flag is now:', flag)
 
 
-n=threading.Thread(target=normal)
-i=threading.Thread(target=get_input)
+n = threading.Thread(target=normal)
+i = threading.Thread(target=get_input)
 n.start()
 i.start()
 
