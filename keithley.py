@@ -38,14 +38,14 @@ multimeter2.write(":SENSe:FUNCtion 'FRESistance'") # Set the keithley  to measur
 # # print(multimeter.query(':SYSTem:ERRor?'))
 
 
-time1List = []  # Create an empty list to store time values in.
-time2List = []
-time3List = []
-time4List = []
-voltageList1 = []  # Create an empty list to store temperature values in.
-voltageList2 = []
-voltageList3 = []
-voltageList4 = []
+time_flow_rate = []  # Create an empty list to store time values in.
+time_volt_drop_block = []
+time_current_shunt = []
+time_diff_pressure = []
+flow_rate = []  # Create an empty list to store temperature values in.
+voltage_drop_block = []
+current_shunt = []
+diff_pressure = []
 
 T_water_in = []
 time_water_in = []
@@ -92,29 +92,29 @@ def normal():
         multimeter1.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
         time.sleep(1)
         voltageReading1 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        voltageList1.append(voltageReading1)  # Append processed data to the temperature list
-        time1List.append(float(time.time() - startTime)) # Append time values to the time list
+        flow_rate.append(voltageReading1)
+        time_flow_rate.append(float(time.time() - startTime))
         time.sleep(0.5)
-        #
+
         multimeter1.write(":ROUTe:CLOSe (@2)")  # Set the keithley to measure channel 2 of card 1
         time.sleep(1) # 0.05 Interval to wait between collecting data points.
         voltageReading2 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        voltageList2.append(voltageReading2)  # Append processed data to the temperature list
-        time2List.append(float(time.time() - startTime)) # Append time values to the time list
+        voltage_drop_block.append(voltageReading2)
+        time_volt_drop_block.append(float(time.time() - startTime))
         time.sleep(0.5)
 
-        multimeter1.write(":ROUTe:CLOSe (@3)")  # Set the keithley to measure channel 1 of card 1
+        multimeter1.write(":ROUTe:CLOSe (@3)")  # Set the keithley to measure channel 3 of card 1
         time.sleep(1)
         voltageReading3 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        voltageList3.append(voltageReading3)  # Append processed data to the temperature list
-        time3List.append(float(time.time() - startTime)) # Append time values to the time list
+        current_shunt.append(voltageReading3 / (50e-3 / 200))  # Voltage reading is converted to current by using resistance of shunt
+        time_current_shunt.append(float(time.time() - startTime))
         time.sleep(0.5)
-        #
-        multimeter1.write(":ROUTe:CLOSe (@4)")  # Set the keithley to measure channel 2 of card 1
+
+        multimeter1.write(":ROUTe:CLOSe (@4)")  # Set the keithley to measure channel 4 of card 1
         time.sleep(1) # 0.05 Interval to wait between collecting data points.
         voltageReading4 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        voltageList4.append((voltageReading4/5-0.04)/0.009)  # Append processed data to the temperature list
-        time4List.append(float(time.time() - startTime)) # Append time values to the time list
+        diff_pressure.append((voltageReading4 / 5 - 0.04) / 0.009)
+        time_diff_pressure.append(float(time.time() - startTime))
         time.sleep(0.5)
 
         # # temperatureReading2 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0][:-2])  # Read and process data from the keithley.
@@ -162,8 +162,8 @@ def normal():
         time.sleep(0.5)
 
         # voltageReading3 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # voltageList3.append(voltageReading3) # Append processed data to the temperature list
-        # time3List.append(float(time.time() - startTime)) # Append time values to the time list
+        # current_shunt.append(voltageReading3) # Append processed data to the temperature list
+        # time_current_shunt.append(float(time.time() - startTime)) # Append time values to the time list
 
 
 
@@ -171,7 +171,7 @@ def normal():
 
         # plt.show()
         # plt.figure(2)
-        # plt.plot(time2List, voltageList2, color='red',linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
+        # plt.plot(time_volt_drop_block, voltage_drop_block, color='red',linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
         # #
 
         if flag==False:
@@ -189,10 +189,10 @@ def normal():
                                      'T_water_out': T_water_out,
                                      't_amb': time_amb,
                                      'T_amb': T_amb,
-                                     't_flow': time1List,
-                                     'V_flow': voltageList1,
-                                     't_block_prob': time2List,
-                                     'V_block_prob': voltageList2
+                                     't_flow': time_flow_rate,
+                                     'V_flow': flow_rate,
+                                     't_block_prob': time_volt_drop_block,
+                                     'V_block_prob': voltage_drop_block
                                      })
 
 
@@ -215,49 +215,25 @@ n.start()
 i.start()
 
 
-    # plt.figure(1)
-    # plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-    # # # plt.xticks(fontsize=18) # Set the font size of the x tick numbers to 18pt
-    # plt.ylabel('Temperature (C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
-    # # plt.yticks(fontsize=18) # Set the font size of the y tick numbers to 18pt
-    # ln, = plt.plot([])
-    # plt.ion()
-    # plt.show()
-
-    # plt.plot(time_water_in, T_water_in, color='blue', linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
-    # plt.plot(time_water_out, T_water_out, color='purple', linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
-    # plt.plot(time_block_1, T_block_1, color='orange', linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
-    # plt.plot(time_block_2, T_block_2, color='red', linewidth=2)  # Plot the collected data with time on the x axis and temperature on the y axis.
-    # plt.pause(0.01) # This command is required for live plotting. This allows the code to keep running while the plot is shown.
-
-
-    # while True:
-    #     plt.pause(6)
-    #     ln.set_xdata(time_water_in)
-    #     ln.set_ydata(T_water_in)
-    #     plt.draw()
-
-
-
 x_data, y_data = [], []
 
 figure = plt.figure(figsize=(6, 4))
 plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Temperature (C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
-line1, = plt.plot(x_data, y_data, 'b-')
-line2, = plt.plot(x_data, y_data, 'g-')
-line3, = plt.plot(x_data, y_data, 'k-')
-line4, = plt.plot(x_data, y_data, 'r-')
-line7, = plt.plot(x_data, y_data, 'm-')
+line1, = plt.plot(x_data, y_data, 'b-')  # T water in
+line2, = plt.plot(x_data, y_data, 'g-')  # T water out
+line3, = plt.plot(x_data, y_data, 'k-')  # T block 1
+line4, = plt.plot(x_data, y_data, 'r-')  # T block 2
+line7, = plt.plot(x_data, y_data, 'm-')  # Ambient temperature
 
 figure2 = plt.figure(figsize=(6, 4))
 plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-plt.ylabel('Voltage (V)')  # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+plt.ylabel('Flow_rate (Lpm)')  # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 line5, = plt.plot(x_data, y_data, 'b-')
 
 figure3 = plt.figure(figsize=(8, 4))
 plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-plt.ylabel('Voltage (mV)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+plt.ylabel('Voltage drop MCM block (mV)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 line6, = plt.plot(x_data, y_data, 'r-')
 
 figure4 = plt.figure(figsize=(8, 4))
@@ -267,12 +243,10 @@ line8, = plt.plot(x_data, y_data, 'r-')
 
 figure5 = plt.figure(figsize=(8, 4))
 plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-plt.ylabel('Voltage (mV)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+plt.ylabel('Current (A)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 line9, = plt.plot(x_data, y_data, 'k-')
 
 def update(frame):
-    # x_data.append(time_water_in)
-    # y_data.append(T_water_in)
     line1.set_data(time_water_in, T_water_in)
     line2.set_data(time_water_out, T_water_out)
     line3.set_data(time_block_1, T_block_1)
@@ -283,34 +257,25 @@ def update(frame):
     return line1, line2, line3, line4, line7
 
 def update2(frame):
-    # x_data.append(time_water_in)
-    # y_data.append(T_water_in)
-    line5.set_data(time1List, voltageList1)
-    # line6.set_data(time2List, voltageList2)
+    line5.set_data(time_flow_rate, flow_rate)
     figure2.gca().relim()
     figure2.gca().autoscale_view()
     return line5
 
 def update3(frame):
-    # x_data.append(time_water_in)
-    # y_data.append(T_water_in)
-    line6.set_data(time2List, voltageList2)
+    line6.set_data(time_volt_drop_block, voltage_drop_block)
     figure3.gca().relim()
     figure3.gca().autoscale_view()
     return line6
 
 def update4(frame):
-    # x_data.append(time_water_in)
-    # y_data.append(T_water_in)
-    line8.set_data(time4List, voltageList4)
+    line8.set_data(time_diff_pressure, diff_pressure)
     figure4.gca().relim()
     figure4.gca().autoscale_view()
     return line8
 
 def update5(frame):
-    # x_data.append(time_water_in)
-    # y_data.append(T_water_in)
-    line9.set_data(time3List, voltageList3)
+    line9.set_data(time_current_shunt, current_shunt)
     figure5.gca().relim()
     figure5.gca().autoscale_view()
     return line9
@@ -326,8 +291,8 @@ plt.show()
 
 #
 # print(voltageList1)
-# print(voltageList2)
-# print(voltageList3)
+# print(voltage_drop_block)
+# print(current_shunt)
 # ------------------------------------------------------------- new code ________________________
 #
 #
