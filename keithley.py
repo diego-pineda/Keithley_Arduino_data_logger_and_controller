@@ -253,19 +253,19 @@ animation5 = FuncAnimation(figure5, update5, interval=200)
 
 plt.show()
 
-figure1_name = 'Temperatures' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure1_name = './Output_figures/' + 'Temperatures' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
 figure.savefig(figure1_name)
 
-figure2_name = 'Flow_rate' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure2_name = './Output_figures/' + 'Flow_rate' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
 figure.savefig(figure2_name)
 
-figure3_name = 'Sample_V_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure3_name = './Output_figures/' + 'Sample_V_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
 figure.savefig(figure3_name)
 
-figure4_name = 'Pressure_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure4_name = './Output_figures/' + 'Pressure_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
 figure.savefig(figure4_name)
 
-figure5_name = 'Current_shunt' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure5_name = './Output_figures/' + 'Current_shunt' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
 figure.savefig(figure5_name)
 
 #
