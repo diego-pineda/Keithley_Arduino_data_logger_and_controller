@@ -13,9 +13,12 @@ PT100_data_frame = pd.read_csv('./PT100_Table.txt', sep='\t', header=None)
 PT100_array = pd.DataFrame(PT100_data_frame).to_numpy()
 PT100 = CubicSpline(PT100_array[:, 1], PT100_array[:, 0])
 
-block = 'block_1b'
-experiment = 'heat_trans_Diff_Press'
-output_file_name = './' + str(date.today()) + block + '-' + experiment + '.csv'
+print('Enter block ID (use underscore between words, no spaces): ')
+block = input()
+print('Enter experiment name (use underscore between words, no spaces):')
+experiment = input()
+output_file_name = './Sensor_data/' + str(date.today().strftime("%d%b%Y")) + '_' + block + '_' + experiment + '.csv'
+print('Output file name: ' + output_file_name)
 
 # Initialize the keithley and create some useful variables
 multimeter1 = pyvisa.ResourceManager().open_resource('GPIB0::16::INSTR')# Connect to the keithley and set it to a variable named multimeter.
@@ -102,9 +105,9 @@ def normal():
 
         multimeter2.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
         time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        RTD_1 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        T_block_1.append(float(PT100(RTD_1)))
-        time_block_1.append(float(time.time() - startTime))
+        RTD_4 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
+        T_water_out.append(float(PT100(RTD_4)))
+        time_water_out.append(float(time.time() - startTime))
         time.sleep(0.5)
 
         multimeter2.write(":ROUTe:CLOSe (@2)")  # Set the keithley to measure channel 1 of card 1
@@ -123,9 +126,9 @@ def normal():
 
         multimeter2.write(":ROUTe:CLOSe (@4)")  # Set the keithley to measure channel 1 of card 1
         time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        RTD_4 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        T_water_out.append(float(PT100(RTD_4)))
-        time_water_out.append(float(time.time() - startTime))
+        RTD_1 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
+        T_block_1.append(float(PT100(RTD_1)))
+        time_block_1.append(float(time.time() - startTime))
         time.sleep(0.5)
 
         multimeter2.write(":ROUTe:CLOSe (@5)")  # Set the keithley to measure channel 1 of card 1
@@ -250,6 +253,20 @@ animation5 = FuncAnimation(figure5, update5, interval=200)
 
 plt.show()
 
+figure1_name = 'Temperatures' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure.savefig(figure1_name)
+
+figure2_name = 'Flow_rate' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure.savefig(figure2_name)
+
+figure3_name = 'Sample_V_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure.savefig(figure3_name)
+
+figure4_name = 'Pressure_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure.savefig(figure4_name)
+
+figure5_name = 'Current_shunt' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure.savefig(figure5_name)
 
 #
 # print(voltageList1)
