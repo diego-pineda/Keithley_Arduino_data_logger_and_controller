@@ -253,20 +253,20 @@ animation5 = FuncAnimation(figure5, update5, interval=200)
 
 plt.show()
 
-figure1_name = './Output_figures/' + 'Temperatures' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
+figure1_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Temperatures' + '_' + str(experiment) + '.pdf'
 figure.savefig(figure1_name)
 
-figure2_name = './Output_figures/' + 'Flow_rate' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
-figure.savefig(figure2_name)
+figure2_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Flow_rate' + '_' + str(experiment) + '.pdf'
+figure2.savefig(figure2_name)
 
-figure3_name = './Output_figures/' + 'Sample_V_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
-figure.savefig(figure3_name)
+figure3_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Sample_V_drop' + '_' + str(experiment) + '.pdf'
+figure3.savefig(figure3_name)
 
-figure4_name = './Output_figures/' + 'Pressure_drop' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
-figure.savefig(figure4_name)
+figure4_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Pressure_drop' + '_' + str(experiment) + '.pdf'
+figure4.savefig(figure4_name)
 
-figure5_name = './Output_figures/' + 'Current_shunt' + '_' + str(date.today().strftime("%d%b%Y")) + '.pdf'
-figure.savefig(figure5_name)
+figure5_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Current_shunt' + '_' + str(experiment) + '.pdf'
+figure5.savefig(figure5_name)
 
 #
 # print(voltageList1)
