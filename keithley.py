@@ -7,7 +7,7 @@ import pandas as pd
 from scipy.interpolate import CubicSpline
 from datetime import date
 import threading
-
+name = 'Diego'
 
 PT100_data_frame = pd.read_csv('./PT100_Table.txt', sep='\t', header=None)
 PT100_array = pd.DataFrame(PT100_data_frame).to_numpy()
