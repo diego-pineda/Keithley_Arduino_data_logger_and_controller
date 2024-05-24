@@ -50,7 +50,8 @@ DMM1_cmd_list = ["*RST",
                  "SAMP:COUN " + str(number_channels_in_scan),
                  "TRIG:SOUR IMM",
                  "FUNC 'VOLTage:DC'",
-                 "VOLTage:DC:NPLC 1",
+                 "VOLTage:DC:NPLC 6",
+                 "VOLTage:DC:RANG 10",
                  "ROUT:SCAN " + chanList,
                  "ROUT:SCAN:LSEL INT",
                  "STAT:MEAS:ENAB 512",
@@ -89,7 +90,7 @@ DMM2_cmd_list = ["*RST",
             "SAMP:COUN " + str(number_channels_in_scan),
             "TRIG:SOUR IMM",
             "FUNC 'FRESistance'",
-            "FRES:NPLC 1",  # sets the integration rate to 1 which is medium speed. Affects speed of a scan operation.
+            "FRES:NPLC 6",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
             "FRES:RANG 1000",
             "ROUT:SCAN " + chanList,
             "ROUT:SCAN:LSEL INT",
@@ -171,20 +172,20 @@ def normal():
         multimeter1.write("INIT")
         DMM1_data = multimeter1.query("TRAC:DATA?")
         DMM1_time_stamp = float(time.time() - startTime)
+        multimeter1.write("ABORt")
+        multimeter1.write("TRAC:CLE")
         DMM1_data_array = [float(i) for i in DMM1_data.split(',')]
 
         flow_rate.append(DMM1_data_array[0])  # CH1.Multimeter_1
         voltage_drop_block.append(DMM1_data_array[1])  # CH2.Multimeter_1
-        current_shunt.append(DMM1_data_array[2] / (50e-3 / 200))  # CH3.Multimeter_1 divided by the resist of the shunt
-        diff_pressure.append((DMM1_data_array[3] / 5 - 0.04) / 0.009)  # CH4.Multimeter_1 pressure drop across block
+        current_shunt.append((DMM1_data_array[2]/ 5.07 - 0.04) / 0.009)  #  / (50e-3 / 200) CH3.Multimeter_1 divided by the resist of the shunt
+        diff_pressure.append((DMM1_data_array[3] / 5.07 - 0.04) / 0.009)  # CH4.Multimeter_1 pressure drop across block
 
         time_flow_rate.append(DMM1_time_stamp)
         time_volt_drop_block.append(DMM1_time_stamp)
         time_current_shunt.append(DMM1_time_stamp)
         time_diff_pressure.append(DMM1_time_stamp)
 
-        multimeter1.write("ABORt")
-        multimeter1.write("TRAC:CLE")
 
         # -------------------- Multimeter 2 ------------------------
 
@@ -226,6 +227,8 @@ def normal():
         multimeter2.write("INIT")
         DMM2_data = multimeter2.query("TRAC:DATA?")
         DMM2_time_stamp = float(time.time() - startTime)
+        multimeter2.write("ABORt")
+        multimeter2.write("TRAC:CLE")
         DMM2_data_array = [float(i) for i in DMM2_data.split(',')]
 
         T_water_in.append(float(PT100(DMM2_data_array[0])))  # CH1.Multimeter_2
@@ -240,13 +243,13 @@ def normal():
         time_block_1.append(DMM2_time_stamp)
         time_amb.append(DMM2_time_stamp)
 
-        multimeter2.write("ABORt")
-        multimeter2.write("TRAC:CLE")
+
         # ***************************************************************************
 
         if flag == False:
             print('Data will be saved in the file: {}'.format(output_file_name))
 
+        # time.sleep(1)
     # ********************************* Returning multimeters to idle state ****************************************
 
     multimeter1.write(":ROUTe:SCAN:LSEL NONE")
@@ -273,8 +276,11 @@ def normal():
                                      't_diff_press': time_diff_pressure,
                                      'Diff_press': diff_pressure
                                      })
-
-    output_dataframe.to_csv(output_file_name, sep="\t", index=False)
+    save_data = input('Do you want to save the data (y/n)?: \n')
+    if save_data == 'y':
+        output_dataframe.to_csv(output_file_name, sep="\t", index=False)
+    else:
+        print('Data will not be saved!')
 
     # **********************************************************************
 
@@ -327,7 +333,7 @@ line9, = plt.plot(x_data, y_data, 'k-')
 
 
 def update(frame):
-    line1.set_data(time_water_in, T_water_in)
+    # line1.set_data(time_water_in, T_water_in)
     line2.set_data(time_water_out, T_water_out)
     line3.set_data(time_block_1, T_block_1)
     line4.set_data(time_block_2, T_block_2)
