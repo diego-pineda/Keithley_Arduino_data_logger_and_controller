@@ -276,9 +276,11 @@ def normal():
                                      't_diff_press': time_diff_pressure,
                                      'Diff_press': diff_pressure
                                      })
+
     save_data = input('Do you want to save the data (y/n)?: \n')
     if save_data == 'y':
         output_dataframe.to_csv(output_file_name, sep="\t", index=False)
+        print('Data file has been saved.\nClose the figures to start saving them and exit the program.')
     else:
         print('Data will not be saved!')
 
