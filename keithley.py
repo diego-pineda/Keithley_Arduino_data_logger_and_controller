@@ -30,8 +30,8 @@ multimeter2 = pyvisa.ResourceManager().open_resource('GPIB0::20::INSTR')# Connec
 # Define some parameters
 dataElements = "READ"
 #number_data_elements_per_chan = len(dataElements)  # saving only reading, time stamp apparently not possible
-chanList = "(@1:4)"
-number_channels_in_scan = 4
+chanList = "(@1:5)"
+number_channels_in_scan = 5
 number_of_scans = 1
 bufferSize = number_of_scans * number_channels_in_scan
 # debug = 1
@@ -50,7 +50,7 @@ DMM1_cmd_list = ["*RST",
                  "SAMP:COUN " + str(number_channels_in_scan),
                  "TRIG:SOUR IMM",
                  "FUNC 'VOLTage:DC'",
-                 "VOLTage:DC:NPLC 6",
+                 "VOLTage:DC:NPLC 7",
                  "VOLTage:DC:RANG 10",
                  "ROUT:SCAN " + chanList,
                  "ROUT:SCAN:LSEL INT",
@@ -90,7 +90,7 @@ DMM2_cmd_list = ["*RST",
             "SAMP:COUN " + str(number_channels_in_scan),
             "TRIG:SOUR IMM",
             "FUNC 'FRESistance'",
-            "FRES:NPLC 6",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
+            "FRES:NPLC 7",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
             "FRES:RANG 1000",
             "ROUT:SCAN " + chanList,
             "ROUT:SCAN:LSEL INT",
@@ -109,25 +109,33 @@ print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
 # multimeter1.write(":SENSe:FUNCtion 'VOLTage:DC'") # Set the keithley to measure Voltage DC
 # multimeter2.write(":SENSe:FUNCtion 'FRESistance'") # Set the keithley  to measure 4-wire resistance
 
+# Variables multimeter 1
+
 time_flow_rate = []  # Create an empty list to store time values in.
 time_volt_drop_block = []
 time_current_shunt = []
 time_diff_pressure = []
+time_diff_pressure_filter = []
+
 flow_rate = []  # Create an empty list to store flow rate values in.
 voltage_drop_block = []
 current_shunt = []
 diff_pressure = []
+diff_pressure_filter = []
+
+# Variables multimeter 2
+
+time_water_in = []
+time_water_out = []
+time_block_1 = []
+time_block_2 = []
+time_amb = []
 
 T_water_in = []
-time_water_in = []
 T_water_out = []
-time_water_out = []
 T_block_1 = []
-time_block_1 = []
 T_block_2 = []
-time_block_2 = []
 T_amb = []
-time_amb = []
 
 startTime = time.time()  # Create a variable that holds the starting timestamp.
 flag = 1
@@ -178,13 +186,15 @@ def normal():
 
         flow_rate.append(DMM1_data_array[0])  # CH1.Multimeter_1
         voltage_drop_block.append(DMM1_data_array[1])  # CH2.Multimeter_1
-        current_shunt.append((DMM1_data_array[2]/ 5.07 - 0.04) / 0.009)  #  / (50e-3 / 200) CH3.Multimeter_1 divided by the resist of the shunt
-        diff_pressure.append((DMM1_data_array[3] / 5.07 - 0.04) / 0.009)  # CH4.Multimeter_1 pressure drop across block
+        diff_pressure_filter.append((DMM1_data_array[2] / 5.07 - 0.04) / 0.009)  # CH3.Multimeter_1
+        diff_pressure.append((DMM1_data_array[3]/ 5.07 - 0.04) / 0.009)  #  CH4.Multimeter_1 pressure drop across block
+        current_shunt.append(DMM1_data_array[4]/ (50e-3 / 200))  # CH5.Multimeter_1 divided by the resist of the shunt
 
         time_flow_rate.append(DMM1_time_stamp)
         time_volt_drop_block.append(DMM1_time_stamp)
-        time_current_shunt.append(DMM1_time_stamp)
+        time_diff_pressure_filter.append(DMM1_time_stamp)
         time_diff_pressure.append(DMM1_time_stamp)
+        time_current_shunt.append(DMM1_time_stamp)
 
 
         # -------------------- Multimeter 2 ------------------------
@@ -274,7 +284,9 @@ def normal():
                                      't_current_shunt': time_current_shunt,
                                      'Current_shunt': current_shunt,
                                      't_diff_press': time_diff_pressure,
-                                     'Diff_press': diff_pressure
+                                     'Diff_press': diff_pressure,
+                                     't_diff_press_filter': time_diff_pressure_filter,
+                                     'Diff_press_filter': diff_pressure_filter
                                      })
 
     save_data = input('Do you want to save the data (y/n)?: \n')
@@ -333,6 +345,11 @@ plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis an
 plt.ylabel('Current (A)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 line9, = plt.plot(x_data, y_data, 'k-')
 
+figure6 = plt.figure(figsize=(8, 4))
+plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.ylabel('Differential_pressure_filter (kPa)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+line10, = plt.plot(x_data, y_data, 'r-')
+
 
 def update(frame):
     # line1.set_data(time_water_in, T_water_in)
@@ -373,11 +390,18 @@ def update5(frame):
     return line9
 
 
+def update6(frame):
+    line10.set_data(time_diff_pressure_filter, diff_pressure_filter)
+    figure6.gca().relim()
+    figure6.gca().autoscale_view()
+    return line10
+
 animation = FuncAnimation(figure, update, interval=200)
 animation2 = FuncAnimation(figure2, update2, interval=200)
 animation3 = FuncAnimation(figure3, update3, interval=200)
 animation4 = FuncAnimation(figure4, update4, interval=200)
 animation5 = FuncAnimation(figure5, update5, interval=200)
+animation6 = FuncAnimation(figure6, update6, interval=200)
 
 plt.show()
 
@@ -399,5 +423,7 @@ figure4.savefig(figure4_name)
 figure5_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Current_shunt' + '_' + str(experiment) + '.pdf'
 figure5.savefig(figure5_name)
 
+figure6_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Pressure_drop_filter' + '_' + str(experiment) + '.pdf'
+figure6.savefig(figure6_name)
 # **************************************** End of script ************************************************************
 
