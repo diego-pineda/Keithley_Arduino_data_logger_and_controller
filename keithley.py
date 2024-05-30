@@ -24,6 +24,7 @@ print('Output file name: ' + output_file_name)
 
 multimeter1 = pyvisa.ResourceManager().open_resource('GPIB0::16::INSTR')# Connect to the keithley and set it to a variable named multimeter.
 multimeter2 = pyvisa.ResourceManager().open_resource('GPIB0::20::INSTR')# Connect to the keithley and set it to a variable named multimeter.
+multimeter3 = pyvisa.ResourceManager().open_resource('GPIB0::22::INSTR')# Connect to the Agilent and set it to a variable named multimeter.
 
 # ******************************* Setting up Multimeter 1 *****************************************
 
@@ -108,6 +109,10 @@ print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
 
 # multimeter1.write(":SENSe:FUNCtion 'VOLTage:DC'") # Set the keithley to measure Voltage DC
 # multimeter2.write(":SENSe:FUNCtion 'FRESistance'") # Set the keithley  to measure 4-wire resistance
+multimeter3.write(":SENSe:FUNCtion 'VOLTage:DC'") # Set the keithley to measure Voltage DC
+multimeter3.write("VOLTage:DC:NPLC 7") # Set the keithley to measure Voltage DC
+multimeter3.write("TRIG:SOUR IMM")
+
 
 # Variables multimeter 1
 
@@ -184,13 +189,24 @@ def normal():
         multimeter1.write("TRAC:CLE")
         DMM1_data_array = [float(i) for i in DMM1_data.split(',')]
 
-        flow_rate.append(DMM1_data_array[0])  # CH1.Multimeter_1
+        # -------------------- Multimeter 3 --------------------
+
+        # multimeter3.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
+        # time.sleep(1)
+
+        voltageReading1 = float(multimeter3.query('READ?').split(' ')[0]) # [:-2]Read and process data from the keithley. # :SENSe:DATA:FRESh?  .....  DATA:LAST?
+        print(voltageReading1)
+        flow_rate.append(voltageReading1)
+        time_flow_rate.append(float(time.time() - startTime))
+        # time.sleep(0.5)
+
+        # flow_rate.append(DMM1_data_array[0])  # CH1.Multimeter_1
         voltage_drop_block.append(DMM1_data_array[1])  # CH2.Multimeter_1
         diff_pressure_filter.append((DMM1_data_array[2] / 5.07 - 0.04) / 0.009)  # CH3.Multimeter_1
         diff_pressure.append((DMM1_data_array[3]/ 5.07 - 0.04) / 0.009)  #  CH4.Multimeter_1 pressure drop across block
         current_shunt.append(DMM1_data_array[4]/ (50e-3 / 200))  # CH5.Multimeter_1 divided by the resist of the shunt
 
-        time_flow_rate.append(DMM1_time_stamp)
+        # time_flow_rate.append(DMM1_time_stamp)
         time_volt_drop_block.append(DMM1_time_stamp)
         time_diff_pressure_filter.append(DMM1_time_stamp)
         time_diff_pressure.append(DMM1_time_stamp)
