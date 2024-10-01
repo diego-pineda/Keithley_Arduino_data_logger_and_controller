@@ -22,10 +22,20 @@ def get_user_input(prompt):
     """Prompts the user for input and ensures it follows the underscore format."""
     while True:
         user_input = input(prompt)
-        if "_" in user_input and " " not in user_input:
+        if " " not in user_input:
             return user_input
         else:
             print("Invalid input. Please use underscores between words and no spaces.")
+
+
+def get_channel_input(prompt):
+    """Prompts the user for input and ensures it follows the required format."""
+    while True:
+        user_input = input(prompt)
+        if user_input.isdigit() and 0 < int(user_input) < 6:
+            return user_input
+        else:
+            print("Invalid input. Please type only numbers between 1 and 5")
 
 
 block_ID = get_user_input("Enter block ID (use underscore between words, no spaces): ")
@@ -41,10 +51,11 @@ name = "michiel"
 
 # **********************************    Initialize Multimeters    *******************************************
 
-multimeter1 = pyvisa.ResourceManager().open_resource('GPIB0::16::INSTR')# Connect to a keithley 2000 and set it to a variable named multimeter1.
+multimeter1 = pyvisa.ResourceManager().open_resource('GPIB0::16::INSTR')  # Connect to a keithley 2000 and set it to a variable named multimeter1.
 multimeter2 = pyvisa.ResourceManager().open_resource('GPIB0::20::INSTR')# Connect to the keithley 2000 and set it to a variable named multimeter2.
 multimeter3 = pyvisa.ResourceManager().open_resource('GPIB0::22::INSTR')# Connect to the Agilent and set it to a variable named multimeter.
 multimeter4 = pyvisa.ResourceManager().open_resource('GPIB0::12::INSTR')# Connect to the LakeShore 331 temperature controller and set it to a variable named multimeter4.
+nanovoltmeter = pyvisa.ResourceManager().open_resource('GPIB0::07::INSTR')
 #multimeter4 = pyvisa.ResourceManager().open_resource('GPIB0::18::INSTR')# Connect to the Keithly and set it to a variable named multimeter.
 #Sourcemeter = pyvisa.ResourceManager().open_resource('GPIB0::24::INSTR')# Connect to the keithly and set it to a variable named sourcemeter
 ser.write(b"OUT_mode_05 1\r\n")
@@ -115,7 +126,7 @@ DMM2_cmd_list = ["*RST",
             "TRIG:SOUR IMM",
             "FUNC 'FRESistance'",
             "FRES:NPLC 7",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
-            "FRES:RANG 1000",
+            "FRES:RANG 1000",  # Sets the range to kOhm
             "ROUT:SCAN " + chanList,
             "ROUT:SCAN:LSEL INT",
             "STAT:MEAS:ENAB 512",
@@ -127,6 +138,14 @@ for cmd in DMM2_cmd_list:
 
 print(multimeter2.read())   #read the *OPC? response
 print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
+
+# Asking the user to assign a channel to every RTD connected to multimeter 2
+
+T_water_out_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of water leaving the block is connected. Just type the number'))-1
+T_block_top_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of top of the block is connected. Just type the number'))-1
+T_block_bottom_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of bottom of the block is connected. Just type the number'))-1
+T_block_left_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of left part of the block is connected. Just type the number'))-1
+T_block_right_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of right part of the block is connected. Just type the number'))-1
 
 # *************************************************************
 
@@ -144,45 +163,51 @@ multimeter3.write("TRIG:SOUR IMM")
 
 # Variables multimeter 1
 
-time_flow_rate = []  # Create an empty list to store time values in.
-time_volt_drop_block = []
-time_current_shunt = []
-time_diff_pressure = []
-time_diff_pressure_filter = []
-time_voltage_drop_plates = []
+time_stamp_DMM1 = []
+# time_volt_drop_block = []
+# time_current_shunt = []
+# time_diff_pressure = []
+# time_diff_pressure_filter = []
+# time_voltage_drop_plates = []
 
-flow_rate = []  # Create an empty list to store flow rate values in.
 voltage_drop_block = []
 current_shunt = []
 diff_pressure = []
 diff_pressure_filter = []
 voltage_drop_plates = []
 
-# Variables multimeter 2
+# Variables multimeter 3
+
+time_flow_rate = []  # Create an empty list to store time values in.
+flow_rate = []  # Create an empty list to store flow rate values in.
+
+# Variables Julabo
 
 time_water_in = []
-time_water_out = []
-time_block_top = []
-time_block_bottom = []
-time_block_left = []
-time_block_right = []
-
-
 T_water_in = []
+
+# Variables multimeter 2
+
+time_stamp_DMM2 = []
+# time_water_out = []
+# time_block_top = []
+# time_block_bottom = []
+# time_block_left = []
+# time_block_right = []
+
 T_water_out = []
 T_block_top = []
 T_block_bottom = []
 T_block_left = []
 T_block_right = []
 
+# Variables multimeter 4
+
 time_ambient = []
 T_ambient = []
 
 startTime = time.time()  # Create a variable that holds the starting timestamp.
 flag = 1
-
-#Create a list for the temperature control
-float_HB_thread_list = [0,1,2] #Elements are added so they can be compared in thread
 
 
 def normal():
@@ -193,34 +218,6 @@ def normal():
 
         # -------------------- Getting voltages of multimeter 1 --------------------
 
-        # multimeter1.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1)
-        # voltageReading1 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # flow_rate.append(voltageReading1)
-        # time_flow_rate.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter1.write(":ROUTe:CLOSe (@2)")  # Set the keithley to measure channel 2 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # voltageReading2 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # voltage_drop_block.append(voltageReading2)
-        # time_volt_drop_block.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter1.write(":ROUTe:CLOSe (@3)")  # Set the keithley to measure channel 3 of card 1
-        # time.sleep(1)
-        # voltageReading3 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # current_shunt.append(voltageReading3 / (50e-3 / 200))  # Voltage reading is converted to current by using resistance of shunt
-        # time_current_shunt.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter1.write(":ROUTe:CLOSe (@4)")  # Set the keithley to measure channel 4 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # voltageReading4 = float(multimeter1.query(':SENSe:DATA:FRESh?').split(',')[0]) # [:-2]Read and process data from the keithley.
-        # diff_pressure.append((voltageReading4 / 5 - 0.04) / 0.009)
-        # time_diff_pressure.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-
         multimeter1.write("INIT")
         DMM1_data = multimeter1.query("TRAC:DATA?")
         DMM1_time_stamp = float(time.time() - startTime)
@@ -230,64 +227,27 @@ def normal():
 
         # -------------------- Getting voltage of multimeter 3 --------------------
 
-        # multimeter3.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1)
-
         voltageReading1 = float(multimeter3.query('READ?').split(' ')[0]) # [:-2]Read and process data from the keithley. # :SENSe:DATA:FRESh?  .....  DATA:LAST?
-        #print(voltageReading1)
         flow_rate.append(voltageReading1)
         time_flow_rate.append(float(time.time() - startTime))
         # time.sleep(0.5)
 
+        # ----------- Performing calculations and assigning values to variables with voltages of multimeter 1 ----------
+
         voltage_drop_plates.append(DMM1_data_array[0])  # CH1.Multimeter_1
         voltage_drop_block.append(DMM1_data_array[1])  # CH2.Multimeter_1
-        diff_pressure.append((DMM1_data_array[2]/ 5.07 - 0.04) / 0.009)  #  CH3.Multimeter_1 pressure drop across block
-        current_shunt.append(DMM1_data_array[3]/ (50e-3 / 200))  # CH4.Multimeter_1 divided by the resist of the shunt
+        diff_pressure.append((DMM1_data_array[2] / 5.07 - 0.04) / 0.009)  #  CH3.Multimeter_1 pressure drop across block
+        current_shunt.append(DMM1_data_array[3] / (50e-3 / 200))  # CH4.Multimeter_1 divided by the resist of the shunt
         # diff_pressure_filter.append((DMM1_data_array[4] / 5.07 - 0.04) / 0.009)  # CH5.Multimeter_1
 
-        time_voltage_drop_plates.append(DMM1_time_stamp)
-        time_volt_drop_block.append(DMM1_time_stamp)
-        time_diff_pressure.append(DMM1_time_stamp)
-        time_current_shunt.append(DMM1_time_stamp)
+        time_stamp_DMM1.append(DMM1_time_stamp)
+        # time_voltage_drop_plates.append(DMM1_time_stamp)
+        # time_volt_drop_block.append(DMM1_time_stamp)
+        # time_diff_pressure.append(DMM1_time_stamp)
+        # time_current_shunt.append(DMM1_time_stamp)
         # time_diff_pressure_filter.append(DMM1_time_stamp)
 
-
         # -------------------- Getting 4W resistances of multimeter 2 ------------------------
-
-        # multimeter2.write(":ROUTe:CLOSe (@1)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # RTD_4 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        # T_water_out.append(float(PT100(RTD_4)))
-        # time_water_out.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter2.write(":ROUTe:CLOSe (@2)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # RTD_2 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        # T_water_in.append(float(PT100(RTD_2)))
-        # time_water_in.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter2.write(":ROUTe:CLOSe (@3)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # RTD_3 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        # T_block_2.append(float(PT100(RTD_3)))
-        # time_block_2.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter2.write(":ROUTe:CLOSe (@4)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # RTD_1 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        # T_block_1.append(float(PT100(RTD_1)))
-        # time_block_1.append(float(time.time() - startTime))
-        # time.sleep(0.5)
-        #
-        # multimeter2.write(":ROUTe:CLOSe (@5)")  # Set the keithley to measure channel 1 of card 1
-        # time.sleep(1) # 0.05 Interval to wait between collecting data points.
-        # RTD_5 = float(multimeter2.query(':SENSe:DATA:FRESh?').split(',')[0])
-        # T_amb.append(float(PT100(RTD_5)))
-        # time_amb.append(float(time.time() - startTime))
-        # time.sleep(0.5)
 
         multimeter2.write("INIT")
         DMM2_data = multimeter2.query("TRAC:DATA?")
@@ -300,37 +260,30 @@ def normal():
 
         ser.write(b"IN_pv_02\n") #Read temperature from julabo
         data_T_water_in = ser.readline() #Read the temperature of the heat bath
+        water_in_time_stamp = float(time.time() - startTime)
         decoded_T_water_in = data_T_water_in.decode("utf-8") #Decode the byte
+
         # print(decoded_T_water_in)
 
-        # ------------------------ Calculating temperatures in Celsius -----------------------------------
+        # ---------------------- Calculating temperatures in Celsius with resistances from multimeter 2 ----------------
 
         T_water_in.append(float(decoded_T_water_in))  # CH1.Multimeter_2
-        T_water_out.append(float(PT100(DMM2_data_array[0])))  # CH1.Multimeter_2
-        T_block_top.append(float(PT100(DMM2_data_array[1])))  # CH2.Multimeter_2
-        T_block_bottom.append(float(PT100(DMM2_data_array[2])))  # CH3.Multimeter_2
-        T_block_left.append(float(PT100(DMM2_data_array[3])))  # CH4.Multimeter_2
-        T_block_right.append(float(PT100(DMM2_data_array[4])))  # CH5.Multimeter_2
+        time_water_in.append(water_in_time_stamp)
 
-        time_water_out.append(DMM2_time_stamp)
-        time_water_in.append(DMM2_time_stamp)
-        time_block_top.append(DMM2_time_stamp)
-        time_block_bottom.append(DMM2_time_stamp)
-        time_block_left.append(DMM2_time_stamp)
-        time_block_right.append(DMM2_time_stamp)
+        T_water_out.append(float(PT100(DMM2_data_array[T_water_out_channel_index])))  # CH1.Multimeter_2
+        T_block_top.append(float(PT100(DMM2_data_array[T_block_top_channel_index])))  # CH2.Multimeter_2
+        T_block_bottom.append(float(PT100(DMM2_data_array[T_block_bottom_channel_index])))  # CH3.Multimeter_2
+        T_block_left.append(float(PT100(DMM2_data_array[T_block_left_channel_index])))  # CH4.Multimeter_2
+        T_block_right.append(float(PT100(DMM2_data_array[T_block_right_channel_index])))  # CH5.Multimeter_2
+
+        time_stamp_DMM2.append(DMM2_time_stamp)
+        # time_water_out.append(DMM2_time_stamp)
+        # time_block_top.append(DMM2_time_stamp)
+        # time_block_bottom.append(DMM2_time_stamp)
+        # time_block_left.append(DMM2_time_stamp)
+        # time_block_right.append(DMM2_time_stamp)
 
         # ------------------------------ Getting ambient temperature from multimeter 4 --------------------------------
-
-        #multimeter4.write("INIT")
-        # DMM4_data = multimeter4.query("TRAC:DATA?")
-        #print(DMM4_data)
-        #DMM4_time_stamp = float(time.time() - startTime)
-        #multimeter4.write("ABORt")
-        #multimeter4.write("TRAC:CLE")
-        #DMM4_data_array = [float(i) for i in DMM4_data.split(',')]
-
-        #time_ambient.append(DMM4_time_stamp)
-        #T_ambient.append(DMM4_data_array[0])
 
         DMM4_data = multimeter4.query("KRDG? B")
         Tamb = float(DMM4_data) - 273.15
@@ -348,48 +301,30 @@ def normal():
 
     multimeter1.write(":ROUTe:SCAN:LSEL NONE")
     multimeter2.write(":ROUTe:SCAN:LSEL NONE")
+    multimeter4.close()
+    multimeter3.close()
 
     # ****************** Writing data to file *****************************
 
-    output_dataframe = pd.DataFrame({'t_block_1': time_block_top,
-                                     'T_block_1': T_block_top,
-                                     't_block_2': time_block_bottom,
-                                     'T_block_2': T_block_bottom,
-                                     't_block_3' : time_block_left,
-                                     'T_block_3' : T_block_left,
-                                     't_block_4' : time_block_right,
-                                     'T_block_4' : T_block_right,
+    output_dataframe = pd.DataFrame({'t_temperatures': time_stamp_DMM2,
+                                     'T_block_top': T_block_top,
+                                     'T_block_bottom': T_block_bottom,
+                                     'T_block_left' : T_block_left,
+                                     'T_block_right' : T_block_right,
+                                     'T_water_out': T_water_out,
                                      't_water_in': time_water_in,
                                      'T_water_in': T_water_in,
-                                     't_water_out': time_water_out,
-                                     'T_water_out': T_water_out,
+                                     't_ambient': time_ambient,
+                                     'T_ambient': T_ambient,
                                      't_flow': time_flow_rate,
                                      'V_flow': flow_rate,
-                                     't_block_prob': time_volt_drop_block,
-                                     'V_block_prob': voltage_drop_block,
-                                     't_current_shunt': time_current_shunt,
-                                     'Current_shunt': current_shunt,
-                                     't_diff_press': time_diff_pressure,
+                                     't_DMM1': time_stamp_DMM1,
                                      'Diff_press': diff_pressure,
-                                     #'t_diff_press_filter': time_diff_pressure_filter,
-                                     #'Diff_press_filter': diff_pressure_filter,
-                                     't_plates': time_voltage_drop_plates,
+                                     'V_block_prob': voltage_drop_block,
+                                     'Current_shunt': current_shunt,
                                      'V_plates': voltage_drop_plates
+                                     #'Diff_press_filter': diff_pressure_filter
                                      })
-
-    # output_dataframe = pd.DataFrame({'t_block_1': time_block_1,
-    #                                  'T_block_1': T_block_1,
-    #                                  'T_block_2': T_block_2,
-    #                                  'T_block_3' : T_block_3,
-    #                                  'T_block_4' : T_block_4,
-    #                                  'T_water_in': T_water_in,
-    #                                  'T_water_out': T_water_out,
-    #                                  't_flow': time_flow_rate,
-    #                                  'V_flow': flow_rate,
-    #                                  't_diff_press': time_diff_pressure,
-    #                                  'Diff_press': diff_pressure
-    #                                  })
-
 
     save_data = input('Do you want to save the data (y/n)?: \n')
     if save_data == 'y':
@@ -397,122 +332,6 @@ def normal():
         print('Data file has been saved.\nClose the figures to start saving them and exit the program.')
     else:
         print('Data will not be saved!')
-
-    # *******************************TEMPERATURE CONTROL THREAD***************************************
-# def Julabo():
-#     global flag
-#
-#     # Create a while loop that continuously measures and plots data from the keithley forever.
-#     while flag == 1:
-#
-#
-#         commandstring_prefix_Julabo = b"OUT_SP_00"  # Both used to create full command
-#         commandstring_suffix_Julabo = b"\r\n"
-#
-#         HB_T = np.linspace(15, 35, 2001)
-#         stringtempHB = str(HB_T[z])  # Turn float into string
-#         bytetempHB = stringtempHB.encode()  # Turn string into byte
-#         combinedstring_Julabo = commandstring_prefix_Julabo + bytetempHB + b" " + commandstring_suffix_Julabo  # Create full command
-#         ser.write(combinedstring_Julabo)
-#         time.sleep(1)
-#         z = z+1
-
-#def temp_and_flow_control():
- #   global flag
-
-    #Starting the heat bath
-  #  ser.write(b"OUT_mode_05 1\r\n")  # starting the bath
-    #stringtempHB = str(HB_T[0])  # Turn float into string
-    #bytetempHB = stringtempHB.encode()  # Turn string into byte
-   # commandstring_prefix_Julabo = b"OUT_SP_00" #Both used to create full command
-    #commandstring_suffix_Julabo = b"\r\n"
-    #combinedstring_Julabo = commandstring_prefix_Julabo + bytetempHB + b" " + commandstring_suffix_Julabo  # Create full command
-    #ser.write(combinedstring_Julabo)
-
-    #Starting the pump
-    #Sourcemeter.write('OUTPUT ON')
-    #commandstring_prefix_Keithly = "SOURCE:VOLT"
-    #stringflowrate = str(Sourcemeterlist[0])
-    #combinedstring_Keithly = commandstring_prefix_Keithly + " " + stringflowrate
-    #Sourcemeter.write(combinedstring_Keithly)
-
-
-
-    #for z in range(len(HB_T)):
-     #   if flag == 0: #To make sure it does not finish its sequence when the measurements are stopped
-       #     break
-      #  else:
-            #ser.write(b"IN_pv_02\n") #Reading external temperature
-            #HB_thread_data = ser.readline()
-
-            #decoded_HB_thread_data = HB_thread_data.decode("utf-8") #Decode byte to string
-            #stripped_HB_thread_data = decoded_HB_thread_data.strip() #Strip the letters from the string
-            #float_HB_thread_data = float(stripped_HB_thread_data) #Turn stripped data into float
-
-            #float_HB_thread_list.append(float_HB_thread_data) #Put most recent measurement in list
-            #condition1 = abs(float_HB_thread_data - HB_T[z]) #Condition that temperature is close to set temperature
-            #condition2 = abs(float_HB_thread_list[-1] - float_HB_thread_list[-2]) #Condition that temperature is stable
-
-        #    stringtempHB = str(HB_T[z])  # Turn float into string
-         #   bytetempHB = stringtempHB.encode()  # Turn string into byte
-          #  combinedstring_Julabo = commandstring_prefix_Julabo + bytetempHB + b" " + commandstring_suffix_Julabo  # Create full command
-           # ser.write(combinedstring_Julabo)
-        #for v in range(len(Sourcemeterlist)):
-         #   if flag == 0:
-          #      break
-           # else:
-            #    stringflowrate = str(Sourcemeterlist[v])
-             #   combinedstring_Keithly = commandstring_prefix_Keithly + " " + stringflowrate
-              #  Sourcemeter.write(combinedstring_Keithly)  # Command to change flow rate of the pump
-
-               # time.sleep(60)
-
-                #ser.write(b"IN_pv_02\n")  # Reading external temperature
-                #HB_thread_data = ser.readline()
-
-                #decoded_HB_thread_data = HB_thread_data.decode("utf-8")  # Decode byte to string
-           #     stripped_HB_thread_data = decoded_HB_thread_data.strip()  # Strip the letter from the string
-            #    float_HB_thread_data = float(stripped_HB_thread_data)  # Turn stripped data into float
-
-             #   float_HB_thread_list.append(float_HB_thread_data)  # Put most recent measurement in list
-              #  condition1 = abs(float_HB_thread_data - HB_T[z])  # Condition that temperature is close to set temperature
-               # condition2 = abs(float_HB_thread_list[-1] - float_HB_thread_list[-2])  # Condition that temperature is stable
-                #print(float_HB_thread_data)  # Print data to see what temperature is measured
-
-          #      sumnumerator = sum(flow_rate[-21:-11]) #Calculate the sum of the 9 values before
-           #     sumdenominator = sum(flow_rate[-11:-1]) #Calculate the sum of the last 9 values
-            #    condition3 = abs((sumnumerator/sumdenominator)-1) #Calculate the error
-             #   print(condition3)
-
-
-
-
-
-
-          #  while (condition1 > 0.3 or condition2 > 0.3 or condition3 > 0.01) and flag == 1:
-           #     time.sleep(60)
-
-            #    ser.write(b"IN_pv_02\n")  # Reading external temperature
-             #   HB_thread_data = ser.readline()
-
-              #  decoded_HB_thread_data = HB_thread_data.decode("utf-8")  # Decode byte to string
-               # stripped_HB_thread_data = decoded_HB_thread_data.strip() #Strip the letter from the string
-            #    float_HB_thread_data = float(stripped_HB_thread_data)  # Turn stripped data into float
-
-             #   float_HB_thread_list.append(float_HB_thread_data)  # Put most recent measurement in list
-              #  condition1 = abs(float_HB_thread_data - HB_T[z]) #Condition that temperature is close to set temperature
-               # condition2 = abs(float_HB_thread_list[-1] - float_HB_thread_list[-2]) #Condition that temperature is stable
-               # print(float_HB_thread_data) #Print data to see what temperature is measured
-
-                #sumnumerator = sum(flow_rate[-21:-11])  # Calculate the sum of the 9 values before
-                #sumdenominator = sum(flow_rate[-11:-1])  # Calculate the sum of the last 9 values
-                #condition3 = abs((sumnumerator / sumdenominator) - 1)  # Calculate the error
-                #print(condition3)
-
-
-    #flag = False #Stop all the threads when the measurementroutine is done
-    #ser.write(b"OUT_mode_05 0\r\n")  # Turn off Heat Bath
-    #Sourcemeter.write('OUTPUT OFF')  # Turn off the Pump
 
 
 def get_input():
@@ -524,10 +343,8 @@ def get_input():
 
 
 n = threading.Thread(target=normal)
-#m = threading.Thread(target=temp_and_flow_control)
 i = threading.Thread(target=get_input)
 n.start()
-#m.start()
 i.start()
 
 # **************************************** Plotting data in (almost) real time *****************************************
@@ -537,12 +354,14 @@ x_data, y_data = [], []
 temperatures_figure = plt.figure(figsize=(6, 4))
 plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Temperature (C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+# plt.legend(loc='upper left', prop={'size': 6})# plt.legend(['T_water_in', 'T_water_out', 'T_block_top', 'T_block_bottom', 'T_block_left', 'T_block_right', 'T_amb'])
 water_in_temp_line, = plt.plot(x_data, y_data, 'b-')  # T water in
 water_out_temp_line, = plt.plot(x_data, y_data, 'g-')  # T water out
-block_top_temp_line, = plt.plot(x_data, y_data, 'k-')  # T block 1
-block_bottom_temp_line, = plt.plot(x_data, y_data, 'r-')  # T block 2
-block_left_temp_line, = plt.plot(x_data, y_data, 'm-')  # T block 3
-block_right_temp_line, = plt.plot(x_data, y_data, 'y-')  # T block 4
+block_top_temp_line, = plt.plot(x_data, y_data, 'k-')  # T block top
+block_bottom_temp_line, = plt.plot(x_data, y_data, 'r-')  # T block bottom
+block_left_temp_line, = plt.plot(x_data, y_data, 'm-')  # T block left
+block_right_temp_line, = plt.plot(x_data, y_data, 'y-')  # T block right
+amb_temp_line, = plt.plot(x_data, y_data, 'c-')  # T ambient
 
 flow_figure = plt.figure(figsize=(6, 4))
 plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
@@ -551,7 +370,7 @@ flow_rate_line, = plt.plot(x_data, y_data, 'b-')
 
 volt_drop_block_figure = plt.figure(figsize=(8, 4))
 plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-plt.ylabel('Voltage drop MCM block (mV)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+plt.ylabel('Voltage drop MCM block (V)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 block_volt_drop_line, = plt.plot(x_data, y_data, 'r-')
 
 diff_press_figure = plt.figure(figsize=(8, 4))
@@ -577,14 +396,16 @@ volt_plates_line, = plt.plot(x_data, y_data, 'r-')
 
 def temperatures(frame):
     water_in_temp_line.set_data(time_water_in, T_water_in)
-    water_out_temp_line.set_data(time_water_out, T_water_out)
-    block_top_temp_line.set_data(time_block_top, T_block_top)
-    block_bottom_temp_line.set_data(time_block_bottom, T_block_bottom)
-    block_left_temp_line.set_data(time_block_left, T_block_left)
-    block_right_temp_line.set_data(time_block_right,T_block_right)
+    water_out_temp_line.set_data(time_stamp_DMM2, T_water_out)
+    block_top_temp_line.set_data(time_stamp_DMM2, T_block_top)
+    block_bottom_temp_line.set_data(time_stamp_DMM2, T_block_bottom)
+    block_left_temp_line.set_data(time_stamp_DMM2, T_block_left)
+    block_right_temp_line.set_data(time_stamp_DMM2, T_block_right)
+    amb_temp_line.set_data(time_ambient, T_ambient)
     temperatures_figure.gca().relim()
     temperatures_figure.gca().autoscale_view()
-    return water_in_temp_line, water_out_temp_line, block_top_temp_line, block_bottom_temp_line, block_left_temp_line, block_right_temp_line
+    # temperatures_figure.legend(['T_water_in', 'T_water_out', 'T_block_top', 'T_block_bottom', 'T_block_left', 'T_block_right', 'T_amb'])
+    return water_in_temp_line, water_out_temp_line, block_top_temp_line, block_bottom_temp_line, block_left_temp_line, block_right_temp_line, amb_temp_line
 
 
 def flow(frame):
@@ -595,21 +416,21 @@ def flow(frame):
 
 
 def block_volt_drop(frame):
-    block_volt_drop_line.set_data(time_volt_drop_block, voltage_drop_block)
+    block_volt_drop_line.set_data(time_stamp_DMM1, voltage_drop_block)
     volt_drop_block_figure.gca().relim()
     volt_drop_block_figure.gca().autoscale_view()
     return block_volt_drop_line
 
 
 def differential_pressure(frame):
-    differential_pressure_line.set_data(time_diff_pressure, diff_pressure)
+    differential_pressure_line.set_data(time_stamp_DMM1, diff_pressure)
     diff_press_figure.gca().relim()
     diff_press_figure.gca().autoscale_view()
     return differential_pressure_line
 
 
 def heating_current(frame):
-    heating_current_line.set_data(time_current_shunt, current_shunt)
+    heating_current_line.set_data(time_stamp_DMM1, current_shunt)
     heating_current_figure.gca().relim()
     heating_current_figure.gca().autoscale_view()
     return heating_current_line
@@ -623,7 +444,7 @@ def heating_current(frame):
 
 
 def volt_plates(frame):
-    volt_plates_line.set_data(time_voltage_drop_plates, voltage_drop_plates)
+    volt_plates_line.set_data(time_stamp_DMM1, voltage_drop_plates)
     volt_plates_figure.gca().relim()
     volt_plates_figure.gca().autoscale_view()
     return volt_plates_line
