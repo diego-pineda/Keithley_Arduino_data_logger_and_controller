@@ -43,6 +43,14 @@ experiment_ID = get_user_input("Enter experiment name (use underscore between wo
 Julabo_channel = get_user_input('Enter the serial port that the Julabo uses. The entered value should be something '
                                 'like COM6. Julabo serial port: ')
 
+# Asking the user to assign a channel to every RTD connected to multimeter 2
+
+T_water_out_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of water leaving the block is connected.\nJust type an integer number between 1 and 5: '))-1
+T_block_top_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of top of the block is connected.\nJust type an integer number between 1 and 5: '))-1
+T_block_bottom_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of bottom of the block is connected.\nJust type an integer number between 1 and 5: '))-1
+T_block_left_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of left part of the block is connected.\nJust type an integer number between 1 and 5: '))-1
+T_block_right_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of right part of the block is connected.\nJust type an integer number between 1 and 5: '))-1
+
 output_file_name = './Sensor_data/' + str(date.today().strftime("%d%b%Y")) + '_' + block_ID + '_' + experiment_ID + '.csv'
 ser = Serial(Julabo_channel)
 print('Output file name: ' + output_file_name)
@@ -138,14 +146,6 @@ for cmd2 in DMM2_cmd_list:
 
 print(multimeter2.read())   #read the *OPC? response
 print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
-
-# Asking the user to assign a channel to every RTD connected to multimeter 2
-
-T_water_out_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of water leaving the block is connected. Just type the number'))-1
-T_block_top_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of top of the block is connected. Just type the number'))-1
-T_block_bottom_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of bottom of the block is connected. Just type the number'))-1
-T_block_left_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of left part of the block is connected. Just type the number'))-1
-T_block_right_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of right part of the block is connected. Just type the number'))-1
 
 # *************************************************************
 
@@ -331,7 +331,7 @@ def normal():
         output_dataframe.to_csv(output_file_name, sep="\t", index=False)
         print('Data file has been saved.\nClose the figures to start saving them and exit the program.')
     else:
-        print('Data will not be saved!')
+        print('Data will not be saved!\nClose the figures to exit the program.')
 
 
 def get_input():
