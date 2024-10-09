@@ -76,14 +76,14 @@ DMM1_cmd_list = ["*RST",
                  "SYSTEM:PRESET",
                  "TRAC:CLE",
                  "INIT:CONT OFF",
+                 "TRIG:COUN " + str(number_of_scans),
+                 "SAMP:COUN " + str(number_channels_in_scan),
+                 "TRIG:SOUR IMM",
                  "TRACE:POINTS " + str(bufferSize),
                  "TRACE:FEED SENS",
                  "TRACE:FEED:CONT NEXT",
                  "FORM:DATA ASCII",
                  "FORM:ELEM " + dataElements,
-                 "TRIG:COUN" + str(number_of_scans),
-                 "SAMP:COUN " + str(number_channels_in_scan),
-                 "TRIG:SOUR IMM",
                  "FUNC 'VOLTage:DC'",
                  "VOLTage:DC:NPLC 7",
                  "VOLTage:DC:RANG 10",
@@ -112,29 +112,29 @@ bufferSize = number_of_scans * number_channels_in_scan
 
 # "ROUT:SCAN:TSO IMM", is not a valid statement for Keithley 2000
 DMM2_cmd_list = ["*RST",
-            "*CLS",
-            "SYSTEM:PRESET",
-            "TRAC:CLE",
-            "INIT:CONT OFF",  # INITiate:CONTinuous OFF has to do with the start of the trigger model
-            "TRACE:POINTS " + str(bufferSize),
-            "TRACE:FEED SENS",
-            "TRACE:FEED:CONT NEXT",
-            "FORM:DATA ASCII",
-            "FORM:ELEM " + dataElements,
-            "TRIG:COUN" + str(number_of_scans),
-            "SAMP:COUN " + str(number_channels_in_scan),
-            "TRIG:SOUR IMM",
-            "FUNC 'FRESistance'",
-            "FRES:NPLC 7",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
-            "FRES:RANG 1000",  # Sets the range to kOhm
-            "ROUT:SCAN " + chanList,
-            "ROUT:SCAN:LSEL INT",
-            "STAT:MEAS:ENAB 512",
-            "*SRE 1",
-            "*OPC?"]
+                 "*CLS",
+                 "SYSTEM:PRESET",
+                 "TRAC:CLE",
+                 "INIT:CONT OFF",  # INITiate:CONTinuous OFF has to do with the start of the trigger model
+                 "TRIG:COUN " + str(number_of_scans),
+                 "SAMP:COUN " + str(number_channels_in_scan),
+                 "TRIG:SOUR IMM",
+                 "TRACE:POINTS " + str(bufferSize),
+                 "TRACE:FEED SENS",
+                 "TRACE:FEED:CONT NEXT",
+                 "FORM:DATA ASCII",
+                 "FORM:ELEM " + dataElements,
+                 "FUNC 'FRESistance'",
+                 "FRES:NPLC 7",  # Integration rate. From 0.1 to 10. 0.1 fast rate, 1 medium, 10 slow. Influences scan rate.
+                 "FRES:RANG 1000",  # Sets the range to kOhm
+                 "ROUT:SCAN " + chanList,
+                 "ROUT:SCAN:LSEL INT",
+                 "STAT:MEAS:ENAB 512",
+                 "*SRE 1",
+                 "*OPC?"]
 
-for cmd in DMM2_cmd_list:
-    multimeter2.write(cmd)
+for cmd2 in DMM2_cmd_list:
+    multimeter2.write(cmd2)
 
 print(multimeter2.read())   #read the *OPC? response
 print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
@@ -221,7 +221,7 @@ def normal():
         multimeter1.write("INIT")
         DMM1_data = multimeter1.query("TRAC:DATA?")
         DMM1_time_stamp = float(time.time() - startTime)
-        multimeter1.write("ABORt")
+        # multimeter1.write("ABORt")
         multimeter1.write("TRAC:CLE")
         DMM1_data_array = [float(i) for i in DMM1_data.split(',')]
 
@@ -252,7 +252,7 @@ def normal():
         multimeter2.write("INIT")
         DMM2_data = multimeter2.query("TRAC:DATA?")
         DMM2_time_stamp = float(time.time() - startTime)
-        multimeter2.write("ABORt")
+        # multimeter2.write("ABORt")
         multimeter2.write("TRAC:CLE")
         DMM2_data_array = [float(i) for i in DMM2_data.split(',')]
 
