@@ -1,0 +1,41 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: KAdatalogger
+message: >-
+  This is a python script useful for collecting data from
+  Keithley multimeters.
+type: software
+authors:
+  - given-names: Diego Fernando
+    family-names: Pineda Quijano
+    email: d.f.pinedaquijano@tudelft.nl
+    name-particle: Diego
+    affiliation: PhD candidate
+    orcid: 'https://orcid.org/0009-0000-2848-8923'
+  - given-names: Michiel
+    family-names: Goemans
+    email: M.Goemans@student.tudelft.nl
+    affiliation: Master Student
+repository-code: >-
+  https://github.com/diego-pineda/Keithley_Arduino_data_logger_and_controller
+abstract: >-
+  A Python script has been developed to read the signals of
+  RTD sensors, differential pressure sensors, and other
+  voltage signals connected to Keithley 2000 using a
+  multi-channel Keithley 2000-SCAN Scanner Card and to
+  similar digital multimeters. Even though this code has
+  been developed with a particular application in mind, the
+  methods used here can be easily implemented in different
+  experimental setups. 
+keywords:
+  - Python
+  - Keithley 2000
+  - Digital multimeters
+  - 'Heat transfer coefficient '
+  - Pressure drop measurements
+  - Arduino
+  - PyVISA
+  - GPIB
+license: CC-BY-NC-4.0
