@@ -151,7 +151,7 @@ def reynolds_friction(data_file, x1, x2, Tw_in_col_index, Tw_out_col_index, flow
         ff_list: list of the corresponding friction factors corresponding to the set of flow rates measured
     """
 
-    Dh = block_ID.Dh
+    Dh = block_ID.Dp_eq
     A_cs = block_ID.A_cs
     eps = block_ID.porosity
     L = block_ID.L_block
@@ -299,7 +299,7 @@ def solve_h(h_initial, x_known, T_known, L, T_f, g_dot, beta, k, q1, q2):
     return h_solution[0]
 
 
-def calculate_heat_transfer_coefficients_with_sample(file_path, sample, k_s, k_f, alpha_k):
+def calculate_heat_transfer_coefficients_with_sample(file_path, sample, k_s, k_f, alpha_k, R_total):
     """
     Calculate heat transfer coefficients using geometric parameters from a Sample instance,
     dynamically computing k_eff based on porosity, and heat generation rates from the "g_dot" column.
@@ -310,9 +310,12 @@ def calculate_heat_transfer_coefficients_with_sample(file_path, sample, k_s, k_f
     - k_s (float): Thermal conductivity of the solid [W/(m·K)].
     - k_f (float): Thermal conductivity of the fluid [W/(m·K)].
     - alpha_k (float): Weighting factor for combining upper and lower bounds of k_eff.
+    - R_total (float): total estimated thermal contact resistance between sample and copper plates
 
     Returns:
     - DataFrame: Data with additional heat transfer coefficients column.
+    - list: List of heat transfer coefficients (h_values).
+    - list: List of flow rates in Lpm corresponding to h_values.
     """
     # Load the data into a DataFrame
     if file_path.endswith(".csv"):
@@ -328,38 +331,75 @@ def calculate_heat_transfer_coefficients_with_sample(file_path, sample, k_s, k_f
     k_eff = alpha_k * k_upper + (1 - alpha_k) * k_lower
 
     h_values = []
+    flow_rates = []  # To store flow rate values in Lpm
+    densities, viscosities, conductivities, prandtl_numbers = [], [], [], []
+    superficial_velocities, reynolds_numbers, nusselt_numbers = [], [], []
+
     for _, row in data.iterrows():
         T1_measured = row["T_block_bottom"] + 273  # Convert to Kelvin
         T2_measured = row["T_block_top"] + 273     # Convert to Kelvin
         Q_contact_resistances = row["Qcontacts"]  # Heat generated at block contacts
         T_f = (row["T_water_out"] + row["T_water_in"]) / 2 + 273  # Average fluid temperature (Kelvin)
         g_dot = row["g_dot"]  # Retrieve g_dot for the current row
+        flow_rate = row["Vflow"]  # Flow rate in Lpm
+        flow_rates.append(flow_rate)
+
         alpha_initial = np.array([0.5])  # Initial guess for alpha
         h_initial = 200  # Initial guess for heat transfer coefficient
         x_known = 0  # Known location (e.g., y=0)
 
         # Define the equation to solve for alpha
         def alpha_equation(alpha):
-            q1 = (Q_contact_resistances / (sample.W_block * sample.H_block)) * alpha
-            q2 = -(Q_contact_resistances / (sample.W_block * sample.H_block)) * (1 - alpha)
-            h_solution = solve_h(h_initial, x_known, T1_measured, sample.L_block, T_f, g_dot, sample.beta, k_eff, q1, q2)
-            T2_calculated = temperature_profile(sample.L_block, sample.L_block, T_f, g_dot, h_solution, sample.beta, k_eff, q1, q2)
+            q1 = (Q_contact_resistances / (sample.L_block * sample.W_block)) * alpha
+            q2 = -(Q_contact_resistances / (sample.L_block * sample.W_block)) * (1 - alpha)
+            h_solution = solve_h(h_initial, x_known, T1_measured, sample.H_block, T_f, g_dot, sample.beta, k_eff, q1, q2)
+            T2_calculated = temperature_profile(sample.H_block, sample.H_block, T_f, g_dot, h_solution, sample.beta, k_eff, q1, q2)
             return T2_calculated - T2_measured
 
         # Solve for alpha
         alpha_solution = fsolve(alpha_equation, alpha_initial, xtol=1e-8)[0]
 
         # Calculate final q1 and q2 using the solved alpha
-        q1_final = Q_contact_resistances / (sample.W_block * sample.H_block) * alpha_solution
-        q2_final = -Q_contact_resistances / (sample.W_block * sample.H_block) * (1 - alpha_solution)
+        q1_final = Q_contact_resistances / (sample.L_block * sample.W_block) * alpha_solution
+        q2_final = -Q_contact_resistances / (sample.L_block * sample.W_block) * (1 - alpha_solution)
+
+        
 
         # Solve for h
-        h_solution = solve_h(h_initial, x_known, T1_measured, sample.L_block, T_f, g_dot, sample.beta, k_eff, q1_final, q2_final)
-        h_values.append(h_solution)
+        h_solution = solve_h(h_initial, x_known, T1_measured, sample.H_block, T_f, g_dot, sample.beta, k_eff, q1_final, q2_final)
 
-    # Add heat transfer coefficients to the DataFrame
+        # Calculate fluid properties
+        density = PropsSI('D', 'T', T_f, 'P', 101325, 'Water')
+        viscosity = PropsSI('V', 'T', T_f, 'P', 101325, 'Water')
+        conductivity = PropsSI('L', 'T', T_f, 'P', 101325, 'Water')
+        cp = PropsSI('C', 'T', T_f, 'P', 101325, 'Water')
+        prandtl = (cp * viscosity) / conductivity
+
+        # Calculate velocities, Reynolds, Nusselt
+        superficial_velocity = flow_rate / 60000 / sample.A_cs
+        reynolds_number = (density * superficial_velocity * sample.Dp_eq) / (viscosity * (1 - sample.porosity))
+        nusselt_number = h_solution * sample.Dp_eq / conductivity
+
+        densities.append(density)
+        viscosities.append(viscosity)
+        conductivities.append(conductivity)
+        prandtl_numbers.append(prandtl)
+        superficial_velocities.append(superficial_velocity)
+        reynolds_numbers.append(reynolds_number)
+        h_values.append(h_solution)
+        nusselt_numbers.append(nusselt_number)
+
+    # Assign lists back to DataFrame
+    data["Density"] = densities
+    data["Viscosity"] = viscosities
+    data["Conductivity"] = conductivities
+    data["Prandtl"] = prandtl_numbers
+    data["Superficial_Velocity"] = superficial_velocities
+    data["Reynolds_number"] = reynolds_numbers
     data["Heat_Transfer_Coefficient"] = h_values
-    return data
+    data["Nusselt_number"] = nusselt_numbers
+
+    return h_values, flow_rates, reynolds_numbers, nusselt_numbers, data
 
 
 
@@ -392,7 +432,7 @@ class Sample:
         self.H_block  = H_block
         self.A_cs     = (W_block-0.001) * (H_block-0.001)  # [m2] Area of cross section of flow channel before block
         self.A_solid  = (np.pi * D_fibers * L_fibers * N_fibers * N_layers - 2 * N_fibers**2 * (N_layers-1) * A_inters)  # D_fibers**2
-        self.Dp       =  6 * V_solid_archimedes / self.A_solid  # W_block / (N_fibers-1) - D_fibers
+        self.Dp_eq       =  6 * V_solid_archimedes / self.A_solid  # W_block / (N_fibers-1) - D_fibers  # Equivalent particle diameter
         self.beta     = self.A_solid / (self.W_block * self.H_block * self.L_block)
         # self.V_solid_calc = np.pi * D_fibers**2 * L_fibers * N_fibers * N_layers / 4 - N_fibers**2 * (1-N_layers) * V_inters
 
@@ -406,11 +446,11 @@ DP_90deg_600um_50p_a = Sample(V_solid_archimedes=1.000E-6, N_layers=18, N_fibers
 DP_90deg_400um_45p_a = Sample(V_solid_archimedes=1.027E-6, N_layers=24, N_fibers=33, D_fibers=380e-6, L_fibers=0.0162, porosity=0.331, L_block=0.0062, W_block=0.016, H_block=0.016, A_inters=135682E-12)
 DP_90deg_400um_50p_a = Sample(V_solid_archimedes=0.958E-6, N_layers=24, N_fibers=29, D_fibers=380e-6, L_fibers=0.0162, porosity=0.376, L_block=0.0062, W_block=0.016, H_block=0.016, A_inters=135682E-12)
 
-print(f'Dh_600um_40p_a = {DP_90deg_600um_40p_a.Dh}')
-print(f'Dh_600um_45p_a = {DP_90deg_600um_45p_a.Dh}')
-print(f'Dh_600um_50p_a = {DP_90deg_600um_50p_a.Dh}')
-print(f'Dh_400um_45p_a = {DP_90deg_400um_45p_a.Dh}')
-print(f'Dh_400um_50p_a = {DP_90deg_400um_50p_a.Dh}')
+print(f'Dh_600um_40p_a = {DP_90deg_600um_40p_a.Dp_eq}')
+print(f'Dh_600um_45p_a = {DP_90deg_600um_45p_a.Dp_eq}')
+print(f'Dh_600um_50p_a = {DP_90deg_600um_50p_a.Dp_eq}')
+print(f'Dh_400um_45p_a = {DP_90deg_400um_45p_a.Dp_eq}')
+print(f'Dh_400um_50p_a = {DP_90deg_400um_50p_a.Dp_eq}')
 
 print(f'As_600um_40p_a = {DP_90deg_600um_40p_a.A_solid}')
 print(f'As_600um_45p_a = {DP_90deg_600um_45p_a.A_solid}')
@@ -468,43 +508,51 @@ print(f'Beta_400um_50p_a = {DP_90deg_400um_50p_a.beta}')
 
 # ------------------------- 600um 40 % porosity sample ---------------
 
-Re_600um_40perc_10C, ff_600um_40perc_10C = reynolds_friction("09Oct2024_90deg_600um_40p_a_press_drop_10C.csv",
+Re_600um_40perc_10C, ff_600um_40perc_10C = reynolds_friction("./Sensor_data/09Oct2024_90deg_600um_40p_a_press_drop_10C.csv",
                                                              1, 658, 5, 7, 11, 13, DP_90deg_600um_40p_a)  # .Dh, 0.015 * 0.015, 0.29, 0.0062 area was 0.016 ** 2 * 0.29 and then 0.000180**2 * 21**2  Dh was 0.180
-Re_600um_40perc_22C, ff_600um_40perc_22C = reynolds_friction("09Oct2024_90deg_600um_40p_a_press_drop_22C.csv",
+Re_600um_40perc_22C, ff_600um_40perc_22C = reynolds_friction("./Sensor_data/09Oct2024_90deg_600um_40p_a_press_drop_22C.csv",
                                                              1, 794, 5, 7, 11, 13, DP_90deg_600um_40p_a)  # .Dh, 0.015 * 0.015, 0.29, 0.0062
-Re_600um_40perc_50C, ff_600um_40perc_50C = reynolds_friction("09Oct2024_90deg_600um_40p_a_press_drop_50C.csv",
+Re_600um_40perc_50C, ff_600um_40perc_50C = reynolds_friction("./Sensor_data/09Oct2024_90deg_600um_40p_a_press_drop_50C.csv",
                                                              1, 773, 5, 7, 11, 13, DP_90deg_600um_40p_a)
 
+h_600um_40perc, Vflow_600um_40perc, Re_htc_600um_40perc, Nu_600um_40perc, data_600um_40perc = calculate_heat_transfer_coefficients_with_sample("data_htc_600um_40p.xlsx", DP_90deg_600um_40p_a, 6, 0.598, 0.5)
+
+
+
 # ------------------------- 600um 45 % porosity sample ---------------
-Re_600um_45perc_7C, ff_600um_45perc_7C = reynolds_friction("17Sep2024_90deg_600um_45p_a_press_drop_7C.csv",
+Re_600um_45perc_7C, ff_600um_45perc_7C = reynolds_friction("./Sensor_data/17Sep2024_90deg_600um_45p_a_press_drop_7C.csv",
                                                            1, 741, 5, 7, 11, 13, DP_90deg_600um_45p_a)  # Dh was 260  area was 0.000260**2 * (19*18)
-Re_600um_45perc_21C, ff_600um_45perc_21C = reynolds_friction("17Sep2024_90deg_600um_45p_a_press_drop_21C.csv",
+Re_600um_45perc_21C, ff_600um_45perc_21C = reynolds_friction("./Sensor_data/17Sep2024_90deg_600um_45p_a_press_drop_21C.csv",
                                                              1, 966, 5, 7, 11, 13, DP_90deg_600um_45p_a)  # Dh_600um_45p_a, 0.015 * 0.015, 0.31, 0.0062
-Re_600um_45perc_50C, ff_600um_45perc_50C = reynolds_friction("13Sep2024_90deg_600um_45p_a_press_drop_50C_a.csv",
+Re_600um_45perc_50C, ff_600um_45perc_50C = reynolds_friction("./Sensor_data/13Sep2024_90deg_600um_45p_a_press_drop_50C_a.csv",
                                                              1, 1185, 5, 7, 11, 13, DP_90deg_600um_45p_a)
 
 # ------------------------- 600um 50 % porosity sample ---------------
-Re_600um_50perc_7C, ff_600um_50perc_7C = reynolds_friction("29Aug2024_90deg_600um_50p_a_press_drop_7C.csv",
+Re_600um_50perc_7C, ff_600um_50perc_7C = reynolds_friction("./Sensor_data/29Aug2024_90deg_600um_50p_a_press_drop_7C.csv",
                                                            1, 800, 5, 7, 9, 11, DP_90deg_600um_50p_a)  # Dh was 340 area was  0.000340**2 * (17*16)
-Re_600um_50perc_25C, ff_600um_50perc_25C = reynolds_friction("29Aug2024_90deg_600um_50p_a_press_drop_25C.csv",
+Re_600um_50perc_25C, ff_600um_50perc_25C = reynolds_friction("./Sensor_data/29Aug2024_90deg_600um_50p_a_press_drop_25C.csv",
                                                              1, 990, 5, 7, 9, 11, DP_90deg_600um_50p_a)  # Dh_600um_50p_a, 0.015 * 0.015, 0.35, 0.0062
-Re_600um_50perc_50C, ff_600um_50perc_50C = reynolds_friction("30Aug2024_90deg_600um_50p_press_drop_50C_2.csv",
+Re_600um_50perc_50C, ff_600um_50perc_50C = reynolds_friction("./Sensor_data/30Aug2024_90deg_600um_50p_press_drop_50C_2.csv",
                                                              1, 917, 5, 7, 11, 13, DP_90deg_600um_50p_a)  # 19Aug2024_90deg_600um_50p_a_press_drop_50C.csv
 
+h_600um_50perc, Vflow_600um_50perc, Re_htc_600um_50perc, Nu_600um_50perc, data_600um_50perc = calculate_heat_transfer_coefficients_with_sample("600um_50p_averages_output.xlsx", DP_90deg_600um_50p_a, 6, 0.598, 0.5)
+#"data_htc_600um_50p_V2.xlsx"
 # ------------------------- 400um 40 % porosity sample ---------------
 
 # ------------------------- 400um 45 % porosity sample ---------------
-Re_400um_45perc_low, ff_400um_45perc_low = reynolds_friction("26Jul2024_400um_45perc_pressure_6C.csv",
+Re_400um_45perc_low, ff_400um_45perc_low = reynolds_friction("./Sensor_data/26Jul2024_400um_45perc_pressure_6C.csv",
                                                            1, 580, 5, 6, 8, 10, DP_90deg_400um_45p_a)  # Dh was 260  area was 0.000260**2 * (19*18)
-Re_400um_45perc_mid, ff_400um_45perc_mid = reynolds_friction("19Jul2024_45por400_flow25C.csv",
+Re_400um_45perc_mid, ff_400um_45perc_mid = reynolds_friction("./Sensor_data/19Jul2024_45por400_flow25C.csv",
                                                              2, 1161, 5, 6, 8, 10, DP_90deg_400um_45p_a)  # Dh_600um_45p_a, 0.015 * 0.015, 0.31, 0.0062
-Re_400um_45perc_hi, ff_400um_45perc_hi = reynolds_friction("26Jul2024_400um_45per_pressure_45C.csv",
+Re_400um_45perc_hi, ff_400um_45perc_hi = reynolds_friction("./Sensor_data/26Jul2024_400um_45per_pressure_45C.csv",
                                                              2, 978, 5, 6, 8, 10, DP_90deg_400um_45p_a)
 
+h_400um_45perc, Vflow_400um_45perc, Re_htc_400um_45perc, Nu_400um_45perc, data_400um_45perc = calculate_heat_transfer_coefficients_with_sample("data_htc_400um_45p.xlsx", DP_90deg_400um_45p_a, 6, 0.598, 0.5)
+
 # ------------------------- 400um 50 % porosity sample ---------------
-Re_400um_50perc_mid, ff_400um_50perc_mid = reynolds_friction("19Jun2024_50p_Ambientgapclosing.csv",
+Re_400um_50perc_mid, ff_400um_50perc_mid = reynolds_friction("./Sensor_data/19Jun2024_50p_Ambientgapclosing.csv",
                                                              1, 205, 9, 11, 13, 19, DP_90deg_400um_50p_a)  # Dh_600um_45p_a, 0.015 * 0.015, 0.31, 0.0062
-Re_400um_50perc_hi, ff_400um_50perc_hi = reynolds_friction("19Jun2024_50p_Hottestvertical.csv",
+Re_400um_50perc_hi, ff_400um_50perc_hi = reynolds_friction("./Sensor_data/19Jun2024_50p_Hottestvertical.csv",
                                                            1, 445, 9, 11, 13, 19, DP_90deg_400um_50p_a)
 # ----------------------------------------------------------------------------------------------------------------------
 # Fitting data to a function of the form ff = a / Re + b, using modified friction factor and modified Re number
@@ -568,6 +616,27 @@ plt.yscale('log')
 plt.tick_params(labelsize=10)
 plt.legend(fontsize=10)
 plt.show()
+
+
+plt.figure()
+plt.scatter(Re_htc_600um_50perc, Nu_600um_50perc, label="600um 35 % porosity")
+plt.scatter(Re_htc_600um_40perc, Nu_600um_40perc, label="600 um 29 % porosity")
+plt.scatter(Re_htc_400um_45perc, Nu_400um_45perc, label="400 um 33 % porosity")
+plt.legend()
+plt.xlabel("Modified Reynolds number [-]", fontsize=10)
+plt.ylabel("Nusselt number [-]", fontsize=10)
+
+plt.figure()
+plt.scatter(Vflow_600um_50perc, h_600um_50perc, label="600um 35 % porosity")
+plt.scatter(Vflow_600um_40perc, h_600um_40perc, label="600um 29 % porosity")
+plt.scatter(Vflow_400um_45perc, h_400um_45perc, label="400um 33 % porosity")
+plt.legend()
+plt.xlabel("Flow rate [Lpm]", fontsize=10)
+plt.ylabel(r"Heat transfer coefficient [$\rm{W}/(\rm{m}^2 \rm{K})$]", fontsize=10)
+plt.show()
+
+
+
 
 # ------------------------------------------------
 
