@@ -10,6 +10,7 @@ from datetime import date
 import threading
 from serial import Serial
 import numpy as np
+import sys
 
 z = 0
 
@@ -35,21 +36,44 @@ def get_channel_input(prompt):
         if user_input.isdigit() and 0 < int(user_input) < 6:
             return user_input
         else:
-            print("Invalid input. Please type only numbers between 1 and 5")
+            print("Invalid input. Please type only integer numbers between 1 and 5")
 
+def get_y_or_n_input(prompt):
+    while True:
+        user_input = input(prompt).lower()
+        if user_input == "y" or user_input == "n":
+            return user_input
+        else:
+            print("Invalid input. Please type only y or n. It can be upper or lower case.")
 
 block_ID = get_user_input("Enter block ID (use underscore between words, no spaces): ")
-experiment_ID = get_user_input("Enter experiment name (use underscore between words, no spaces): ")
-Julabo_channel = get_user_input('Enter the serial port that the Julabo uses. The entered value should be something '
+experiment_ID = get_user_input("\nEnter experiment name (use underscore between words, no spaces): ")
+Julabo_channel = get_user_input('\nTurn ON the Julabo thermostatic bath. Connect the USB cable to your PC. Read the serial port from the device manager of your PC.'
+                                ' \nEnter the serial port of the Julabo TB. The entered value should be something '
                                 'like COM6. Julabo serial port: ')
 
 # Asking the user to assign a channel to every RTD connected to multimeter 2
 
-T_water_out_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of water leaving the block is connected.\nJust type an integer number between 1 and 5: '))-1
-T_block_top_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of top of the block is connected.\nJust type an integer number between 1 and 5: '))-1
-T_block_bottom_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of bottom of the block is connected.\nJust type an integer number between 1 and 5: '))-1
-T_block_left_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of left part of the block is connected.\nJust type an integer number between 1 and 5: '))-1
-T_block_right_channel_index = int(get_channel_input('Type channel number where RTD sensing the temperature of right part of the block is connected.\nJust type an integer number between 1 and 5: '))-1
+T_water_out_channel_index = int(get_channel_input('\nRTD sensing the temperature of water leaving the block is connected to channel: '))-1
+T_block_top_channel_index = int(get_channel_input('\nRTD sensing the temperature of top of the block is connected to channel: '))-1
+T_block_bottom_channel_index = int(get_channel_input('\nRTD sensing the temperature of bottom of the block is connected to channel: '))-1
+T_block_left_channel_index = int(get_channel_input('\nRTD sensing the temperature of left part of the block is connected to channel: '))-1
+T_block_right_channel_index = int(get_channel_input('\nRTD sensing the temperature of right part of the block is connected to channel: '))-1
+
+# Verification of channels on multimeter 1
+
+verification_prompt = "\nCheck the connection of the following signals on multimeter 1 (Older Keithley 2000):\n" \
+                      "\nChannel 1: Voltage drop across the plates\n" \
+                      "Channel 2: Voltage drop across the block\n" \
+                      "Channel 3: Differential pressure sensor\n" \
+                      "Channel 4: Current shunt\n" \
+                      "\nAre these signals properly connected? If not the program will stop. Make the necessary adjustments please! (y/n): "
+
+verification_channels_multimeter_1 = get_y_or_n_input(verification_prompt)
+
+if verification_channels_multimeter_1 == 'n':
+    print("\nProgram will stop now. Connect signals properly in Multimeter 1 (older Keithley 2000).")
+    sys.exit()
 
 output_file_name = './Sensor_data/' + str(date.today().strftime("%d%b%Y")) + '_' + block_ID + '_' + experiment_ID + '.csv'
 ser = Serial(Julabo_channel)
@@ -60,13 +84,13 @@ name = "michiel"
 # **********************************    Initialize Multimeters    *******************************************
 
 multimeter1 = pyvisa.ResourceManager().open_resource('GPIB0::16::INSTR')  # Connect to a keithley 2000 and set it to a variable named multimeter1.
-multimeter2 = pyvisa.ResourceManager().open_resource('GPIB0::20::INSTR')# Connect to the keithley 2000 and set it to a variable named multimeter2.
-multimeter3 = pyvisa.ResourceManager().open_resource('GPIB0::22::INSTR')# Connect to the Agilent and set it to a variable named multimeter.
-multimeter4 = pyvisa.ResourceManager().open_resource('GPIB0::12::INSTR')# Connect to the LakeShore 331 temperature controller and set it to a variable named multimeter4.
+multimeter2 = pyvisa.ResourceManager().open_resource('GPIB0::20::INSTR')  # Connect to the keithley 2000 and set it to a variable named multimeter2.
+multimeter3 = pyvisa.ResourceManager().open_resource('GPIB0::22::INSTR')  # Connect to the Agilent and set it to a variable named multimeter.
+multimeter4 = pyvisa.ResourceManager().open_resource('GPIB0::12::INSTR')  # Connect to the LakeShore 331 temperature controller and set it to a variable named multimeter4.
 nanovoltmeter = pyvisa.ResourceManager().open_resource('GPIB0::07::INSTR')
 #multimeter4 = pyvisa.ResourceManager().open_resource('GPIB0::18::INSTR')# Connect to the Keithly and set it to a variable named multimeter.
 #Sourcemeter = pyvisa.ResourceManager().open_resource('GPIB0::24::INSTR')# Connect to the keithly and set it to a variable named sourcemeter
-ser.write(b"OUT_mode_05 1\r\n")
+ser.write(b"OUT_mode_05 1\r\n")  # Starts remote control of the JULABO refrigerated circulator
 
 # ******************************* Setting up Multimeter 1 *****************************************
 
@@ -151,8 +175,8 @@ print("*OPC received; finished setting up Keithley 2000 Multimeter 2")
 
 # multimeter1.write(":SENSe:FUNCtion 'VOLTage:DC'") # Set the keithley to measure Voltage DC
 # multimeter2.write(":SENSe:FUNCtion 'FRESistance'") # Set the keithley  to measure 4-wire resistance
-multimeter3.write(":SENSe:FUNCtion 'VOLTage:DC'") # Set the keithley to measure Voltage DC
-multimeter3.write("VOLTage:DC:NPLC 7") # Set the keithley to measure Voltage DC
+multimeter3.write(":SENSe:FUNCtion 'VOLTage:DC'")  # Set the keithley to measure Voltage DC
+multimeter3.write("VOLTage:DC:NPLC 7")  # Set the keithley to measure Voltage DC
 multimeter3.write("TRIG:SOUR IMM")
 
 #********************************************************************
@@ -207,13 +231,13 @@ time_ambient = []
 T_ambient = []
 
 startTime = time.time()  # Create a variable that holds the starting timestamp.
-flag = 1
+flag = 1  # When flag is set to 0 by the user, the infinite while loop stops
 
 
 def normal():
     global flag
 
-# Create a while loop that continuously measures and plots data from the keithley forever.
+# Create a while loop that continuously measures and plots data from the multimeters until user stops it
     while flag == 1:
 
         # -------------------- Getting voltages of multimeter 1 --------------------
@@ -258,10 +282,10 @@ def normal():
 
         # ----------------------- Getting temperature of inlet water from Julabo --------------------------
 
-        ser.write(b"IN_pv_02\n") #Read temperature from julabo
-        data_T_water_in = ser.readline() #Read the temperature of the heat bath
+        ser.write(b"IN_pv_02\n")  # Read temperature from Julabo
+        data_T_water_in = ser.readline()  # Read the temperature of the heat bath
         water_in_time_stamp = float(time.time() - startTime)
-        decoded_T_water_in = data_T_water_in.decode("utf-8") #Decode the byte
+        decoded_T_water_in = data_T_water_in.decode("utf-8")  # Decode the byte
 
         # print(decoded_T_water_in)
 
@@ -286,9 +310,9 @@ def normal():
         # ------------------------------ Getting ambient temperature from multimeter 4 --------------------------------
 
         DMM4_data = multimeter4.query("KRDG? B")
+        DMM4_time_stamp = float(time.time() - startTime)
         Tamb = float(DMM4_data) - 273.15
         T_ambient.append(Tamb)
-        DMM4_time_stamp = float(time.time() - startTime)
         time_ambient.append(DMM4_time_stamp)
 
         # ***************************************************************************
@@ -309,8 +333,8 @@ def normal():
     output_dataframe = pd.DataFrame({'t_temperatures': time_stamp_DMM2,
                                      'T_block_top': T_block_top,
                                      'T_block_bottom': T_block_bottom,
-                                     'T_block_left' : T_block_left,
-                                     'T_block_right' : T_block_right,
+                                     'T_block_left': T_block_left,
+                                     'T_block_right': T_block_right,
                                      'T_water_out': T_water_out,
                                      't_water_in': time_water_in,
                                      'T_water_in': T_water_in,
@@ -326,12 +350,12 @@ def normal():
                                      #'Diff_press_filter': diff_pressure_filter
                                      })
 
-    save_data = input('Do you want to save the data (y/n)?: \n')
+    save_data = get_y_or_n_input('Do you want to save the data (y/n)?: ')
     if save_data == 'y':
         output_dataframe.to_csv(output_file_name, sep="\t", index=False)
-        print('Data file has been saved.\nClose the figures to start saving them and exit the program.')
+        print('\nData file has been saved.\nClose the figures to start saving them and exit the program.')
     else:
-        print('Data will not be saved!\nClose the figures to exit the program.')
+        print('\nData will not be saved!\nClose the figures to exit the program.')
 
 
 def get_input():
@@ -353,7 +377,7 @@ x_data, y_data = [], []
 
 temperatures_figure = plt.figure(figsize=(6, 4))
 plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
-plt.ylabel('Temperature (C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+plt.ylabel('Temperature (\u00b0C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 # plt.legend(loc='upper left', prop={'size': 6})# plt.legend(['T_water_in', 'T_water_out', 'T_block_top', 'T_block_bottom', 'T_block_left', 'T_block_right', 'T_amb'])
 water_in_temp_line, = plt.plot(x_data, y_data, 'b-')  # T water in
 water_out_temp_line, = plt.plot(x_data, y_data, 'g-')  # T water out
@@ -364,22 +388,22 @@ block_right_temp_line, = plt.plot(x_data, y_data, 'y-')  # T block right
 amb_temp_line, = plt.plot(x_data, y_data, 'c-')  # T ambient
 
 flow_figure = plt.figure(figsize=(6, 4))
-plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Flow_rate (Lpm)')  # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 flow_rate_line, = plt.plot(x_data, y_data, 'b-')
 
 volt_drop_block_figure = plt.figure(figsize=(8, 4))
-plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Voltage drop MCM block (V)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 block_volt_drop_line, = plt.plot(x_data, y_data, 'r-')
 
 diff_press_figure = plt.figure(figsize=(8, 4))
-plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Differential_pressure (kPa)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 differential_pressure_line, = plt.plot(x_data, y_data, 'r-')
 
 heating_current_figure = plt.figure(figsize=(8, 4))
-plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Heating_Current (A)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 heating_current_line, = plt.plot(x_data, y_data, 'k-')
 
@@ -389,7 +413,7 @@ heating_current_line, = plt.plot(x_data, y_data, 'k-')
 # line10, = plt.plot(x_data, y_data, 'r-')
 
 volt_plates_figure = plt.figure(figsize=(8, 4))
-plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Voltage between plates (V)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 volt_plates_line, = plt.plot(x_data, y_data, 'r-')
 
