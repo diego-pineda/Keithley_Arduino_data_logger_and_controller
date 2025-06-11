@@ -19,6 +19,15 @@ PT100_array = pd.DataFrame(PT100_data_frame).to_numpy()
 PT100 = CubicSpline(PT100_array[:, 1], PT100_array[:, 0])
 
 
+def is_valid_number(value):
+    """Checks if a string represents a valid float (including + or - signs)."""
+    try:
+        float(value)  # Attempt conversion to float
+        return True
+    except ValueError:
+        return False
+
+
 def get_user_input(prompt):
     """Prompts the user for input and ensures it follows the underscore format."""
     while True:
@@ -54,11 +63,13 @@ Julabo_channel = get_user_input('\nTurn ON the Julabo thermostatic bath. Connect
 
 # Asking the user to assign a channel to every RTD connected to multimeter 2
 
-T_water_out_channel_index = int(get_channel_input('\nRTD sensing the temperature of water leaving the block is connected to channel: '))-1
 T_block_top_channel_index = int(get_channel_input('\nRTD sensing the temperature of top of the block is connected to channel: '))-1
 T_block_bottom_channel_index = int(get_channel_input('\nRTD sensing the temperature of bottom of the block is connected to channel: '))-1
-T_block_left_channel_index = int(get_channel_input('\nRTD sensing the temperature of left part of the block is connected to channel: '))-1
-T_block_right_channel_index = int(get_channel_input('\nRTD sensing the temperature of right part of the block is connected to channel: '))-1
+T_amb_channel_index = int(get_channel_input('\nRTD sensing the ambient temperature is connected to channel: '))-1
+# T_block_left_channel_index = int(get_channel_input('\nRTD sensing the temperature of left part of the block is connected to channel: '))-1
+# T_block_right_channel_index = int(get_channel_input('\nRTD sensing the temperature of right part of the block is connected to channel: '))-1
+T_water_in_channel_index = int(get_channel_input('\nRTD sensing the temperature of water entering the block is connected to channel: '))-1
+T_water_out_channel_index = int(get_channel_input('\nRTD sensing the temperature of water leaving the block is connected to channel: '))-1
 
 # Verification of channels on multimeter 1
 
@@ -78,7 +89,7 @@ if verification_channels_multimeter_1 == 'n':
 output_file_name = './Sensor_data/' + str(date.today().strftime("%d%b%Y")) + '_' + block_ID + '_' + experiment_ID + '.csv'
 ser = Serial(Julabo_channel)
 print('Output file name: ' + output_file_name)
-name = "michiel"
+
 
 
 # **********************************    Initialize Multimeters    *******************************************
@@ -208,7 +219,7 @@ flow_rate = []  # Create an empty list to store flow rate values in.
 # Variables Julabo
 
 time_water_in = []
-T_water_in = []
+T_water_in_julabo = []  # [°C]
 
 # Variables multimeter 2
 
@@ -219,16 +230,18 @@ time_stamp_DMM2 = []
 # time_block_left = []
 # time_block_right = []
 
-T_water_out = []
-T_block_top = []
-T_block_bottom = []
-T_block_left = []
-T_block_right = []
+T_water_in = []  # [°C]
+T_water_out = []  # [°C]
+T_block_top = []  # [°C]
+T_block_bottom = []  # [°C]
+T_ambient = []  # [°C]
 
 # Variables multimeter 4
 
-time_ambient = []
-T_ambient = []
+time_lakeshore = []
+
+T_block_left = []  # [°C]
+T_block_right = []  # [°C]
 
 startTime = time.time()  # Create a variable that holds the starting timestamp.
 flag = 1  # When flag is set to 0 by the user, the infinite while loop stops
@@ -283,38 +296,64 @@ def normal():
         # ----------------------- Getting temperature of inlet water from Julabo --------------------------
 
         ser.write(b"IN_pv_02\n")  # Read temperature from Julabo
-        data_T_water_in = ser.readline()  # Read the temperature of the heat bath
-        water_in_time_stamp = float(time.time() - startTime)
-        decoded_T_water_in = data_T_water_in.decode("utf-8")  # Decode the byte
+        # data_T_water_in = ser.readline()  # Read the temperature of the heat bath
+        # decoded_T_water_in = data_T_water_in.decode("utf-8")  # Decode the byte
+        # T_water_in_julabo.append(float(decoded_T_water_in))
 
+        try:
+            data_T_water_in = ser.readline().decode("utf-8").strip()
+            if not data_T_water_in:
+                raise ValueError("Empty response from Julabo")
+            T_water_in_julabo.append(float(data_T_water_in))
+        except Exception as e:
+            print(f"Error reading from Julabo: {e}")
+            T_water_in_julabo.append(np.nan)
+
+
+        water_in_time_stamp = float(time.time() - startTime)
+        time_water_in.append(water_in_time_stamp)
         # print(decoded_T_water_in)
 
         # ---------------------- Calculating temperatures in Celsius with resistances from multimeter 2 ----------------
 
-        T_water_in.append(float(decoded_T_water_in))  # CH1.Multimeter_2
-        time_water_in.append(water_in_time_stamp)
-
-        T_water_out.append(float(PT100(DMM2_data_array[T_water_out_channel_index])))  # CH1.Multimeter_2
-        T_block_top.append(float(PT100(DMM2_data_array[T_block_top_channel_index])))  # CH2.Multimeter_2
-        T_block_bottom.append(float(PT100(DMM2_data_array[T_block_bottom_channel_index])))  # CH3.Multimeter_2
-        T_block_left.append(float(PT100(DMM2_data_array[T_block_left_channel_index])))  # CH4.Multimeter_2
-        T_block_right.append(float(PT100(DMM2_data_array[T_block_right_channel_index])))  # CH5.Multimeter_2
+        T_water_in.append(float(PT100(DMM2_data_array[T_water_in_channel_index])))
+        T_water_out.append(float(PT100(DMM2_data_array[T_water_out_channel_index])))
+        T_block_top.append(float(PT100(DMM2_data_array[T_block_top_channel_index])))
+        T_block_bottom.append(float(PT100(DMM2_data_array[T_block_bottom_channel_index])))
+        T_ambient.append(float(PT100(DMM2_data_array[T_amb_channel_index])))
 
         time_stamp_DMM2.append(DMM2_time_stamp)
-        # time_water_out.append(DMM2_time_stamp)
-        # time_block_top.append(DMM2_time_stamp)
-        # time_block_bottom.append(DMM2_time_stamp)
-        # time_block_left.append(DMM2_time_stamp)
-        # time_block_right.append(DMM2_time_stamp)
 
-        # ------------------------------ Getting ambient temperature from multimeter 4 --------------------------------
+        # ------------------------------ Getting temperatures from multimeter 4 --------------------------------
+        # temp_A = multimeter4.query("KRDG? A")
+        # T_block_right.append(float(temp_A) - 273.15)
+        # time.sleep(0.25)
+        # temp_B = multimeter4.query("KRDG? B")
+        # T_block_left.append(float(temp_B) - 273.15)
 
-        DMM4_data = multimeter4.query("KRDG? B")
+        try:
+            temp_A = multimeter4.query("KRDG? A").strip()
+            temp_B = multimeter4.query("KRDG? B").strip()
+
+            # print(f"Raw LakeShore responses -> A: '{temp_A}', B: '{temp_B}'")  # Debugging
+
+            # Validate response format before converting to float
+            if not is_valid_number(temp_A) or not is_valid_number(temp_B):
+                raise ValueError("LakeShore returned non-numeric data")
+
+            T_block_right.append(float(temp_A) - 273.15)
+            T_block_left.append(float(temp_B) - 273.15)
+
+        except Exception as e:
+            print(f"Error reading from LakeShore 331: {e}")
+            T_block_right.append(np.nan)
+            T_block_left.append(np.nan)
+
+
         DMM4_time_stamp = float(time.time() - startTime)
-        Tamb = float(DMM4_data) - 273.15
-        T_ambient.append(Tamb)
-        time_ambient.append(DMM4_time_stamp)
-
+        time_lakeshore.append(DMM4_time_stamp)
+        # Note: both temperature readings differ slightly in time but assumed collected simultaneosuly
+        # time.sleep(0.4)
         # ***************************************************************************
 
         if flag == False:
@@ -333,13 +372,14 @@ def normal():
     output_dataframe = pd.DataFrame({'t_temperatures': time_stamp_DMM2,
                                      'T_block_top': T_block_top,
                                      'T_block_bottom': T_block_bottom,
+                                     'T_ambient': T_ambient,
+                                     'T_water_out': T_water_out,
+                                     'T_water_in': T_water_in,
+                                     't_water_in': time_water_in,
+                                     'T_julabo': T_water_in_julabo,
+                                     't_lakeshore': time_lakeshore,
                                      'T_block_left': T_block_left,
                                      'T_block_right': T_block_right,
-                                     'T_water_out': T_water_out,
-                                     't_water_in': time_water_in,
-                                     'T_water_in': T_water_in,
-                                     't_ambient': time_ambient,
-                                     'T_ambient': T_ambient,
                                      't_flow': time_flow_rate,
                                      'V_flow': flow_rate,
                                      't_DMM1': time_stamp_DMM1,
@@ -376,9 +416,10 @@ i.start()
 x_data, y_data = [], []
 
 temperatures_figure = plt.figure(figsize=(6, 4))
-plt.xlabel('Elapsed Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.xlabel('Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 plt.ylabel('Temperature (\u00b0C)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 # plt.legend(loc='upper left', prop={'size': 6})# plt.legend(['T_water_in', 'T_water_out', 'T_block_top', 'T_block_bottom', 'T_block_left', 'T_block_right', 'T_amb'])
+julabo_temp_line, = plt.plot(x_data, y_data, color='orange', linestyle='-')  # T water in from Julabo
 water_in_temp_line, = plt.plot(x_data, y_data, 'b-')  # T water in
 water_out_temp_line, = plt.plot(x_data, y_data, 'g-')  # T water out
 block_top_temp_line, = plt.plot(x_data, y_data, 'k-')  # T block top
@@ -386,6 +427,13 @@ block_bottom_temp_line, = plt.plot(x_data, y_data, 'r-')  # T block bottom
 block_left_temp_line, = plt.plot(x_data, y_data, 'm-')  # T block left
 block_right_temp_line, = plt.plot(x_data, y_data, 'y-')  # T block right
 amb_temp_line, = plt.plot(x_data, y_data, 'c-')  # T ambient
+
+water_temperatures_figure = plt.figure(figsize=(6, 4))
+plt.xlabel('Time (s)') # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+plt.ylabel('Temperature (\u00b0C)')
+julabo_temp_line2, = plt.plot(x_data, y_data, color='orange', linestyle='-')  # T water in from Julabo
+water_in_temp_line2, = plt.plot(x_data, y_data, 'b-')  # T water in
+water_out_temp_line2, = plt.plot(x_data, y_data, 'g-')  # T water out
 
 flow_figure = plt.figure(figsize=(6, 4))
 plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
@@ -407,6 +455,12 @@ plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set th
 plt.ylabel('Heating_Current (A)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
 heating_current_line, = plt.plot(x_data, y_data, 'k-')
 
+
+# power_figure = plt.figure(figsize=(8, 4))
+# plt.xlabel('Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
+# plt.ylabel('Power (W)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
+# electrical_power_line, = plt.plot(x_data, y_data, 'r-')
+# water_absorbed_heat_line, = plt.plot(x_data, y_data, 'b-')
 # figure6 = plt.figure(figsize=(8, 4))
 # plt.xlabel('Elapsed Time (s)')  # , fontsize=24 Create a label for the x axis and set the font size to 24pt
 # plt.ylabel('Differential_pressure_filter (kPa)') # , fontsize=24 Create a label for the y axis and set the font size to 24pt.. $^\circ$C
@@ -419,17 +473,28 @@ volt_plates_line, = plt.plot(x_data, y_data, 'r-')
 
 
 def temperatures(frame):
-    water_in_temp_line.set_data(time_water_in, T_water_in)
+    julabo_temp_line.set_data(time_water_in, T_water_in_julabo)
+    water_in_temp_line.set_data(time_stamp_DMM2, T_water_in)
     water_out_temp_line.set_data(time_stamp_DMM2, T_water_out)
     block_top_temp_line.set_data(time_stamp_DMM2, T_block_top)
     block_bottom_temp_line.set_data(time_stamp_DMM2, T_block_bottom)
-    block_left_temp_line.set_data(time_stamp_DMM2, T_block_left)
-    block_right_temp_line.set_data(time_stamp_DMM2, T_block_right)
-    amb_temp_line.set_data(time_ambient, T_ambient)
+    amb_temp_line.set_data(time_stamp_DMM2, T_ambient)
+    block_left_temp_line.set_data(time_lakeshore, T_block_left)
+    block_right_temp_line.set_data(time_lakeshore, T_block_right)
+
     temperatures_figure.gca().relim()
     temperatures_figure.gca().autoscale_view()
     # temperatures_figure.legend(['T_water_in', 'T_water_out', 'T_block_top', 'T_block_bottom', 'T_block_left', 'T_block_right', 'T_amb'])
-    return water_in_temp_line, water_out_temp_line, block_top_temp_line, block_bottom_temp_line, block_left_temp_line, block_right_temp_line, amb_temp_line
+    return julabo_temp_line, water_in_temp_line, water_out_temp_line, block_top_temp_line, block_bottom_temp_line, amb_temp_line, block_left_temp_line, block_right_temp_line
+
+
+def water_temperatures(frame):
+    julabo_temp_line2.set_data(time_water_in, T_water_in_julabo)
+    water_in_temp_line2.set_data(time_stamp_DMM2, T_water_in)
+    water_out_temp_line2.set_data(time_stamp_DMM2, T_water_out)
+    water_temperatures_figure.gca().relim()
+    water_temperatures_figure.gca().autoscale_view()
+    return julabo_temp_line2, water_in_temp_line2, water_out_temp_line2
 
 
 def flow(frame):
@@ -474,6 +539,15 @@ def volt_plates(frame):
     return volt_plates_line
 
 
+# def power(frame):
+#     electrical_power_line.set_data(time_stamp_DMM1, np.array(voltage_drop_plates) * np.array(current_shunt))
+#     water_absorbed_heat_line.set_data(time_stamp_DMM2, 4200 * (np.array(flow_rate)/60) * (np.array(T_water_out) - np.array(T_water_in)))
+#     power_figure.gca().relim()
+#     power_figure.gca().autoscale_view()
+#     return electrical_power_line, water_absorbed_heat_line
+
+
+
 animation1 = FuncAnimation(temperatures_figure, temperatures, interval=200)
 animation2 = FuncAnimation(flow_figure, flow, interval=200)
 animation3 = FuncAnimation(volt_drop_block_figure, block_volt_drop, interval=200)
@@ -481,6 +555,8 @@ animation4 = FuncAnimation(diff_press_figure, differential_pressure, interval=20
 animation5 = FuncAnimation(heating_current_figure, heating_current, interval=200)
 # animation6 = FuncAnimation(figure6, update6, interval=200)
 animation7 = FuncAnimation(volt_plates_figure, volt_plates, interval=200)
+animation8 = FuncAnimation(water_temperatures_figure, water_temperatures, interval=200)
+# animation9 = FuncAnimation(power_figure, power, interval=200)
 
 plt.show()
 
@@ -507,5 +583,12 @@ heating_current_figure.savefig(figure5_name)
 #
 figure7_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Voltage_plates' + '_' + str(block_ID) + '_' + str(experiment_ID) + '.pdf'
 volt_plates_figure.savefig(figure7_name)
+
+figure8_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Water_temperatures' + '_' + str(block_ID) + '_' + str(experiment_ID) + '.pdf'
+water_temperatures_figure.savefig(figure8_name)
+
+# figure9_name = './Output_figures/' + str(date.today().strftime("%d%b%Y")) + '_' + 'Power' + '_' + str(block_ID) + '_' + str(experiment_ID) + '.pdf'
+# power_figure.savefig(figure9_name)
+
 # **************************************** End of script ************************************************************
 
