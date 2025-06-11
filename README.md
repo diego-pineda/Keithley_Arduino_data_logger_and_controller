@@ -11,8 +11,7 @@ gives the temperature in Celcius and the second column gives the electrical resi
 
 Monitornocontrol.py
 
-This python script was used to collect data from two Keithley 2000 multimeters, one Lakeshore 331 temperature controller, one Agilent 34410A multimeter. Together, these multimeters collected data on temperature, flow rate, pressure drop, current, and voltage differences
-necessary for the pressure drop and heat transfer characterization of this geometry.
+This python script was used to collect data from two Keithley 2000 multimeters, one Lakeshore 331 temperature controller, one Agilent 34410A multimeter. Together, these multimeters collected data on temperature, flow rate, pressure drop, current, and voltage differences necessary for the pressure drop and heat transfer characterization of this geometry. The directories Output_figures and Sensor_data are used to store the outputs of the Monitornocontrol.py script, i.e. the collected sensor data in the form of tables (stored in Sensor_data) and in the form of signal vs time figures (stored in Output_figures).
 
 Pump_control_Keithley2400.py
 
