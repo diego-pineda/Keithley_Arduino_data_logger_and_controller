@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 from skimage import io, filters, exposure, morphology
 from PIL import Image, ImageDraw
 from scipy.spatial.distance import cdist
+import tkinter as tk
+
+
+root = tk.Tk()
+screen_width = root.winfo_screenwidth()
+screen_height = root.winfo_screenheight()
+root.destroy()
+
 
 # List to store clicked points
 polygon_points = []
@@ -11,11 +19,15 @@ polygon_points = []
 
 def select_points(event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:  # Left mouse click
-        polygon_points.append((x, y))
-        print(f"Point selected: {x}, {y}")
+        # Rescale back to original image coordinates
+        scale = param["scale"]
+        orig_x = int(x / scale)
+        orig_y = int(y / scale)
+        polygon_points.append((orig_x, orig_y))
+        print(f"Point selected: {orig_x}, {orig_y}")
 
 
-def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_in_actual_fiber_contour=50, roi_hor_start=0.01, roi_hor_end=0.99):
+def analyze_fibers(image_path, scale_bar_length=500, kernel_size=91, min_pixels_in_actual_fiber_contour=100, roi_hor_start=0.01, roi_hor_end=0.99):
     """
     Analyzes fibers in a microscopic image to determine their diameters and orientations.
 
@@ -93,8 +105,23 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
 
     # Show image and let user click points
     cv2.namedWindow("Select Polygon ROI", cv2.WINDOW_NORMAL)
-    cv2.imshow("Select Polygon ROI (Click to add points, press any key to finish)", image)
-    cv2.setMouseCallback("Select Polygon ROI (Click to add points, press any key to finish)", select_points)
+
+    # ----------------- Testing ----------------------
+    # Resize for display if too large
+    screen_res = (screen_width, screen_height)  # Example screen resolution; adjust as needed
+    scale_width = screen_res[0] / image.shape[1]
+    scale_height = screen_res[1] / image.shape[0]
+    scale = min(scale_width, scale_height)
+
+    window_width = int(image.shape[1] * scale)
+    window_height = int(image.shape[0] * scale)
+
+    # Resize image just for display
+    image_display = cv2.resize(image, (window_width, window_height), interpolation=cv2.INTER_AREA)
+    # --------------------- Testing -----------------------
+
+    cv2.imshow("Select Polygon ROI (Click to add points, press any key to finish)", image_display)
+    cv2.setMouseCallback("Select Polygon ROI (Click to add points, press any key to finish)", select_points, param={"scale": scale})
     cv2.waitKey(0)  # Wait for any key press
     cv2.destroyAllWindows()
 
@@ -261,7 +288,7 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
     actual_fiber_contours = filtered_contours
 
     # Define the number of longest contours to keep
-    top_contours_by_len = 10  # Store as a variable for easy adjustments
+    top_contours_by_len = 11  # Store as a variable for easy adjustments
 
     # Sort contours by length (descending order)
     actual_fiber_contours = sorted(actual_fiber_contours, key=len, reverse=True)
@@ -308,7 +335,7 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
         # # Compute the center of the mask
         # mask_center = (x_mask + w_mask // 2, y_mask + h_mask // 2)
         center = (width // 2, height // 2)
-        rotation_matrix = cv2.getRotationMatrix2D(center, (90-avg_angle), 1.0)
+        rotation_matrix = cv2.getRotationMatrix2D(center, (90+avg_angle), 1.0)  # -90-avg_angle
         rotated_contours = [cv2.transform(np.array(contour, dtype=np.float32), rotation_matrix).astype(int) for contour in actual_fiber_contours]
         rotated_image = Image.new("RGB", (width, height), (0, 0, 0))
         rotated_draw = ImageDraw.Draw(rotated_image)
@@ -328,9 +355,9 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
                     rotated_draw.line([(x_positions[i], y_pos), (x_positions[i + 1], y_pos)], fill=(255, 255, 0), width=1)
                     length_micrometers = (x_positions[i + 1] - x_positions[i]) / pixels_per_micrometer
                     # print(f"Horizontal line at y={y_pos}: Length = {length_micrometers:.2f} micrometers")
-                    if 300 < length_micrometers < 500:
+                    if 370 < length_micrometers < 430:
                         fiber_diameters.append(length_micrometers)
-                    elif 100 < length_micrometers < 300:
+                    elif 50 < length_micrometers < 150:
                         fiber_separations.append(length_micrometers)
 
         # Draw rotated contours
@@ -339,7 +366,7 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
 
         # Restore previous plotting and display logic
         plt.figure(figsize=(6, 6))
-        plt.hist(fiber_diameters, bins=20, edgecolor='black', alpha=0.7)
+        plt.hist(fiber_diameters, bins=30, edgecolor='black', alpha=0.7)
         plt.xlabel("Fiber Diameter (µm)")
         plt.ylabel("Frequency")
         plt.title("Distribution of Fiber Diameters")
@@ -347,6 +374,7 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
         plt.pause(0.1)
 
         print(f"Average Fiber Diameter: {sum(fiber_diameters) / len(fiber_diameters):.2f} µm")
+        print(f"Average Fiber separation: {sum(fiber_separations) / len(fiber_separations):.2f} µm")
 
         plt.figure(figsize=(6, 6))
         plt.imshow(rotated_image)
@@ -374,5 +402,7 @@ def analyze_fibers(image_path, scale_bar_length=500, kernel_size=51, min_pixels_
 # Example usage
 # image_path = "C:/Users/dfpinedaquijan/surfdrive/PhD Project/Data/Diego SEM/Diego_test_fast.tif"
 
-image_path = "C:/Users/dfpinedaquijan/surfdrive/PhD Project/Data/Diego SEM/90deg_400um_45perc/botom_edge_dimens.bmp"
+# image_path = "C:/Users/dfpinedaquijan/surfdrive/PhD Project/Data/Diego SEM/90deg_400um_45perc/botom_edge_dimens.bmp"
+image_path = "C:/Users/dfpinedaquijan/surfdrive/PhD Project/Data/SEM/90deg_400um_40perc/Image1_no_ruler.tif"
+
 analyze_fibers(image_path)
